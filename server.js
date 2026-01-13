@@ -57,7 +57,7 @@ app.post('/api/channels', async (req, res) => {
     if (!name || name.length < 1 || name.length > 20) {
       return res.status(400).json({ success: false, error: 'Invalid channel name' });
     }
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const cleanName = name.trim().replace(/\s+/g, '-');
     const { data, error } = await supabase.from('channels').insert([{ name: cleanName }]).select().single();
     if (error) throw error;
     io.emit('channelCreated', data);
