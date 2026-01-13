@@ -11,11 +11,12 @@ const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  maxHttpBufferSize: 15e6 // 15MB
 });
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
 
 // Supabase設定
 const supabaseUrl = process.env.SUPABASE_URL || 'https://znlklskqcuybcnrflieq.supabase.co';
@@ -33,7 +34,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// メインページ（画像対応版）
+// メインページ（画像・動画対応版）
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -108,14 +109,14 @@ app.get('/', (req, res) => {
       margin-left: 8px;
     }
     .text { line-height: 1.4; word-wrap: break-word; }
-    .msg-image {
+    .msg-image, .msg-video {
       max-width: 400px;
       max-height: 300px;
       border-radius: 8px;
       margin-top: 8px;
       cursor: pointer;
     }
-    .msg-image:hover { opacity: 0.9; }
+    .msg-image:hover, .msg-video:hover { opacity: 0.9; }
     .roblox-badge {
       background: #00a2ff;
       color: white;
@@ -138,17 +139,17 @@ app.get('/', (req, res) => {
       margin: 0 20px 20px 20px;
       border-radius: 8px;
     }
-    #image-preview {
+    #media-preview {
       display: none;
       margin-bottom: 10px;
       position: relative;
     }
-    #image-preview img {
+    #media-preview img, #media-preview video {
       max-width: 200px;
       max-height: 150px;
       border-radius: 8px;
     }
-    #image-preview .remove-btn {
+    #media-preview .remove-btn {
       position: absolute;
       top: -8px;
       right: -8px;
@@ -160,6 +161,11 @@ app.get('/', (req, res) => {
       color: white;
       cursor: pointer;
       font-size: 14px;
+    }
+    .file-size-warning {
+      color: #faa61a;
+      font-size: 12px;
+      margin-top: 5px;
     }
     #input-row {
       display: flex;
@@ -183,7 +189,7 @@ app.get('/', (req, res) => {
       font-size: 14px;
       outline: none;
     }
-    #image-btn {
+    #media-btn {
       background: #5865f2;
       border: none;
       padding: 10px 15px;
@@ -192,7 +198,7 @@ app.get('/', (req, res) => {
       cursor: pointer;
       font-size: 14px;
     }
-    #image-btn:hover { background: #4752c4; }
+    #media-btn:hover { background: #4752c4; }
     #send-btn {
       background: #5865f2;
       border: none;
@@ -206,8 +212,8 @@ app.get('/', (req, res) => {
     #send-btn:disabled { background: #4752c4; opacity: 0.5; }
     #file-input { display: none; }
     
-    /* 画像モーダル */
-    #image-modal {
+    /* メディアモーダル */
+    #media-modal {
       display: none;
       position: fixed;
       top: 0;
@@ -220,7 +226,7 @@ app.get('/', (req, res) => {
       align-items: center;
       cursor: pointer;
     }
-    #image-modal img {
+    #media-modal img, #media-modal video {
       max-width: 90%;
       max-height: 90%;
       border-radius: 8px;
@@ -234,21 +240,24 @@ app.get('/', (req, res) => {
   </div>
   <div id="messages"></div>
   <div id="input-area">
-    <div id="image-preview">
-      <img id="preview-img" src="">
-      <button class="remove-btn" onclick="removeImage()">×</button>
+    <div id="media-preview">
+      <img id="preview-img" src="" style="display:none;">
+      <video id="preview-video" src="" style="display:none;" controls></video>
+      <button class="remove-btn" onclick="removeMedia()">×</button>
+      <div id="size-warning" class="file-size-warning"></div>
     </div>
     <div id="input-row">
       <input type="text" id="username-input" placeholder="名前" maxlength="20">
-      <input type="text" id="message-input" placeholder="メッセージを送信 (Ctrl+Vで画像貼り付け)" maxlength="500">
-      <input type="file" id="file-input" accept="image/*">
-      <button id="image-btn">📷</button>
+      <input type="text" id="message-input" placeholder="メッセージを送信 (Ctrl+Vで貼り付け)" maxlength="500">
+      <input type="file" id="file-input" accept="image/*,video/*">
+      <button id="media-btn">📷</button>
       <button id="send-btn">送信</button>
     </div>
   </div>
 
-  <div id="image-modal">
-    <img id="modal-img" src="">
+  <div id="media-modal">
+    <img id="modal-img" src="" style="display:none;">
+    <video id="modal-video" src="" style="display:none;" controls></video>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -260,13 +269,18 @@ app.get('/', (req, res) => {
     const sendBtn = document.getElementById('send-btn');
     const onlineCount = document.getElementById('online-count');
     const fileInput = document.getElementById('file-input');
-    const imageBtn = document.getElementById('image-btn');
-    const imagePreview = document.getElementById('image-preview');
+    const mediaBtn = document.getElementById('media-btn');
+    const mediaPreview = document.getElementById('media-preview');
     const previewImg = document.getElementById('preview-img');
-    const imageModal = document.getElementById('image-modal');
+    const previewVideo = document.getElementById('preview-video');
+    const sizeWarning = document.getElementById('size-warning');
+    const mediaModal = document.getElementById('media-modal');
     const modalImg = document.getElementById('modal-img');
+    const modalVideo = document.getElementById('modal-video');
 
-    let pendingImage = null;
+    let pendingMedia = null;
+    let pendingMediaType = null;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
     usernameInput.value = localStorage.getItem('username') || '';
 
@@ -292,60 +306,101 @@ app.get('/', (req, res) => {
         avatarClass = 'avatar roblox';
       }
       const time = new Date(data.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-      let imageHtml = '';
-      if (data.image_url) {
-        imageHtml = '<img class="msg-image" src="' + data.image_url + '" onclick="showImage(this.src)">';
+      let mediaHtml = '';
+      if (data.media_url) {
+        if (data.media_type === 'video') {
+          mediaHtml = '<video class="msg-video" src="' + data.media_url + '" onclick="showMedia(this.src, \\'video\\')" controls></video>';
+        } else {
+          mediaHtml = '<img class="msg-image" src="' + data.media_url + '" onclick="showMedia(this.src, \\'image\\')">';
+        }
+      } else if (data.image_url) {
+        mediaHtml = '<img class="msg-image" src="' + data.image_url + '" onclick="showMedia(this.src, \\'image\\')">';
       }
       div.innerHTML = 
         '<div class="' + avatarClass + '">' + escapeHtml(initial) + '</div>' +
         '<div class="content">' +
           '<div class="username">' + escapeHtml(data.username) + badge + '<span class="time">' + time + '</span></div>' +
           '<div class="text">' + escapeHtml(data.message) + '</div>' +
-          imageHtml +
+          mediaHtml +
         '</div>';
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    function showImage(src) {
-      modalImg.src = src;
-      imageModal.style.display = 'flex';
-    }
-
-    imageModal.addEventListener('click', () => {
-      imageModal.style.display = 'none';
-    });
-
-    function removeImage() {
-      pendingImage = null;
-      imagePreview.style.display = 'none';
-      previewImg.src = '';
-    }
-
-    function handleImage(file) {
-      if (file && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          pendingImage = e.target.result;
-          previewImg.src = pendingImage;
-          imagePreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+    function showMedia(src, type) {
+      if (type === 'video') {
+        modalImg.style.display = 'none';
+        modalVideo.style.display = 'block';
+        modalVideo.src = src;
+      } else {
+        modalVideo.style.display = 'none';
+        modalImg.style.display = 'block';
+        modalImg.src = src;
       }
+      mediaModal.style.display = 'flex';
     }
 
-    imageBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files[0]) handleImage(e.target.files[0]);
+    mediaModal.addEventListener('click', () => {
+      mediaModal.style.display = 'none';
+      modalVideo.pause();
     });
 
-    // Ctrl+V で画像ペースト
+    function removeMedia() {
+      pendingMedia = null;
+      pendingMediaType = null;
+      mediaPreview.style.display = 'none';
+      previewImg.style.display = 'none';
+      previewVideo.style.display = 'none';
+      previewImg.src = '';
+      previewVideo.src = '';
+      sizeWarning.textContent = '';
+    }
+
+    function handleMedia(file) {
+      if (!file) return;
+      
+      if (file.size > MAX_SIZE) {
+        sizeWarning.textContent = '⚠️ ファイルサイズが大きすぎます（10MB以下にしてください）';
+        return;
+      }
+      
+      const isVideo = file.type.startsWith('video/');
+      const isImage = file.type.startsWith('image/');
+      
+      if (!isVideo && !isImage) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        pendingMedia = e.target.result;
+        pendingMediaType = isVideo ? 'video' : 'image';
+        
+        if (isVideo) {
+          previewImg.style.display = 'none';
+          previewVideo.style.display = 'block';
+          previewVideo.src = pendingMedia;
+        } else {
+          previewVideo.style.display = 'none';
+          previewImg.style.display = 'block';
+          previewImg.src = pendingMedia;
+        }
+        mediaPreview.style.display = 'block';
+        sizeWarning.textContent = '';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    mediaBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleMedia(e.target.files[0]);
+    });
+
+    // Ctrl+V でメディアペースト
     document.addEventListener('paste', (e) => {
       const items = e.clipboardData.items;
       for (let item of items) {
-        if (item.type.startsWith('image/')) {
+        if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
           const file = item.getAsFile();
-          handleImage(file);
+          handleMedia(file);
           e.preventDefault();
           break;
         }
@@ -355,12 +410,17 @@ app.get('/', (req, res) => {
     function sendMessage() {
       const message = messageInput.value.trim();
       const username = usernameInput.value.trim() || 'Anonymous';
-      if ((message || pendingImage) && !sendBtn.disabled) {
+      if ((message || pendingMedia) && !sendBtn.disabled) {
         sendBtn.disabled = true;
         localStorage.setItem('username', username);
-        socket.emit('chat', { username, message, image: pendingImage });
+        socket.emit('chat', { 
+          username, 
+          message, 
+          media: pendingMedia,
+          mediaType: pendingMediaType
+        });
         messageInput.value = '';
-        removeImage();
+        removeMedia();
         setTimeout(() => { sendBtn.disabled = false; }, 500);
       }
     }
@@ -564,7 +624,8 @@ io.on('connection', async (socket) => {
       const newMessage = {
         username: (data.username || 'Anonymous').substring(0, 20),
         message: (data.message || '').substring(0, 500),
-        image_url: data.image || null,
+        media_url: data.media || null,
+        media_type: data.mediaType || null,
         from_roblox: false,
         is_announcement: false
       };
