@@ -1063,6 +1063,11 @@ app.get('/', (req, res) => {
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // ===== コンソール警告 =====
+    console.log('%c ', 'background: url(https://i.imgur.com/dBups2n.png) no-repeat center; background-size: contain; padding: 150px 200px;');
+    console.log('%c↑ 警告を必ず読んでください ↑', 'color: red; font-size: 16px; font-weight: bold;');
+    console.log('%cこのコンソールは開発者向けです。', 'font-size: 12px; color: gray;');
+    
     const socket = io();
     let currentChannel = 1;
     let channels = [];
