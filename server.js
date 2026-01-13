@@ -104,12 +104,13 @@ app.get('/', (req, res) => {
     .channel-item.active { background: #393c43; color: #fff; }
     .channel-item::before { content: '#'; font-size: 18px; }
     
-    /* 画面共有ボタン */
-    #screen-share-section { padding: 10px 15px; border-top: 1px solid #202225; }
-    #screen-share-btn { width: 100%; padding: 10px; background: #3ba55d; border: none; border-radius: 5px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    #screen-share-btn:hover { background: #2d8049; }
-    #screen-share-btn.sharing { background: #ed4245; }
-    #screen-share-btn.sharing:hover { background: #c73e41; }
+    /* 画面共有チャンネル */
+    #voice-channels-header { padding: 10px 15px; color: #72767d; font-size: 12px; font-weight: bold; margin-top: 10px; border-top: 1px solid #202225; }
+    .voice-channel-item { padding: 8px 15px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: #72767d; display: flex; justify-content: space-between; align-items: center; }
+    .voice-channel-item:hover { background: #393c43; color: #dcddde; }
+    .voice-channel-item.active { background: #3ba55d33; color: #3ba55d; }
+    .voice-channel-item.sharing { background: #ed424533; color: #ed4245; }
+    .viewer-count { font-size: 11px; background: #202225; padding: 2px 6px; border-radius: 10px; }
     
     #main { flex: 1; display: flex; flex-direction: column; }
     #header { background: #36393f; padding: 15px 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid #202225; display: flex; justify-content: space-between; align-items: center; }
@@ -185,8 +186,20 @@ app.get('/', (req, res) => {
     <div id="server-header">siDChat</div>
     <div id="channels-header">チャンネル<button id="add-channel-btn">+</button></div>
     <div id="channel-list"></div>
-    <div id="screen-share-section">
-      <button id="screen-share-btn">🖥️ 画面共有</button>
+    <div id="voice-channels-header">画面共有</div>
+    <div id="voice-channel-list">
+      <div class="voice-channel-item" id="screen-room-1" onclick="joinScreenRoom(1)">
+        <span>🖥️ 共有ルーム1</span>
+        <span class="viewer-count" id="room1-count">0人</span>
+      </div>
+      <div class="voice-channel-item" id="screen-room-2" onclick="joinScreenRoom(2)">
+        <span>🖥️ 共有ルーム2</span>
+        <span class="viewer-count" id="room2-count">0人</span>
+      </div>
+      <div class="voice-channel-item" id="screen-room-3" onclick="joinScreenRoom(3)">
+        <span>🖥️ 共有ルーム3</span>
+        <span class="viewer-count" id="room3-count">0人</span>
+      </div>
     </div>
   </div>
   
@@ -276,6 +289,7 @@ app.get('/', (req, res) => {
     const screenShareContainer = document.getElementById('screen-share-container');
     const screenShareVideo = document.getElementById('screen-share-video');
     const sharerNameSpan = document.getElementById('sharer-name');
+    let currentScreenRoom = null;
 
     let pendingMedia = null;
     let pendingMediaType = null;
@@ -299,28 +313,63 @@ app.get('/', (req, res) => {
 
     usernameInput.value = localStorage.getItem('username') || '';
 
-    // ========== 画面共有 ==========
-    screenShareBtn.onclick = async () => {
-      if (!isSharing) {
+    // ========== 画面共有ルーム ==========
+    async function joinScreenRoom(roomId) {
+      const username = usernameInput.value.trim() || 'Anonymous';
+      
+      // 既に同じルームにいる場合は退出
+      if (currentScreenRoom === roomId) {
+        leaveScreenRoom();
+        return;
+      }
+      
+      // 他のルームにいたら退出
+      if (currentScreenRoom) {
+        leaveScreenRoom();
+      }
+      
+      currentScreenRoom = roomId;
+      updateRoomUI();
+      socket.emit('joinScreenRoom', { roomId, username });
+      
+      // 画面共有を開始するか聞く
+      if (confirm('画面を共有しますか？\\n「キャンセル」を押すと視聴のみになります')) {
         try {
           localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
           isSharing = true;
-          screenShareBtn.textContent = '🛑 共有を停止';
-          screenShareBtn.classList.add('sharing');
-          
-          const username = usernameInput.value.trim() || 'Anonymous';
-          socket.emit('startScreenShare', { username });
+          socket.emit('startScreenShare', { roomId, username });
           
           localStream.getVideoTracks()[0].onended = () => {
             stopScreenShare();
           };
         } catch (err) {
-          console.error('画面共有エラー:', err);
+          console.log('共有キャンセル');
         }
-      } else {
+      }
+    }
+    
+    function leaveScreenRoom() {
+      if (isSharing) {
         stopScreenShare();
       }
-    };
+      socket.emit('leaveScreenRoom', { roomId: currentScreenRoom });
+      currentScreenRoom = null;
+      screenShareContainer.classList.remove('active');
+      screenShareVideo.srcObject = null;
+      updateRoomUI();
+    }
+    
+    function updateRoomUI() {
+      document.querySelectorAll('.voice-channel-item').forEach(el => {
+        el.classList.remove('active', 'sharing');
+      });
+      if (currentScreenRoom) {
+        const roomEl = document.getElementById('screen-room-' + currentScreenRoom);
+        if (roomEl) {
+          roomEl.classList.add(isSharing ? 'sharing' : 'active');
+        }
+      }
+    }
 
     function stopScreenShare() {
       if (localStream) {
@@ -328,9 +377,8 @@ app.get('/', (req, res) => {
         localStream = null;
       }
       isSharing = false;
-      screenShareBtn.textContent = '🖥️ 画面共有';
-      screenShareBtn.classList.remove('sharing');
-      socket.emit('stopScreenShare');
+      socket.emit('stopScreenShare', { roomId: currentScreenRoom });
+      updateRoomUI();
       
       for (let id in peerConnections) {
         peerConnections[id].close();
@@ -421,6 +469,13 @@ app.get('/', (req, res) => {
 
     socket.on('screenShareFull', () => {
       alert('画面共有は最大3人までです！');
+    });
+    
+    socket.on('roomCounts', (counts) => {
+      for (let roomId in counts) {
+        const countEl = document.getElementById('room' + roomId + '-count');
+        if (countEl) countEl.textContent = counts[roomId] + '人';
+      }
     });
 
     // ========== チャンネル ==========
@@ -659,11 +714,22 @@ let onlineUsers = 0;
 const userChannels = new Map();
 const screenSharers = new Map();
 const screenShareViewers = new Map(); // 視聴者カウント
+const screenRooms = { 1: new Set(), 2: new Set(), 3: new Set() }; // ルームごとの参加者
+const roomSharers = { 1: null, 2: null, 3: null }; // ルームごとの配信者
 const MAX_VIEWERS = 3;
+
+function broadcastRoomCounts() {
+  const counts = {};
+  for (let roomId in screenRooms) {
+    counts[roomId] = screenRooms[roomId].size;
+  }
+  io.emit('roomCounts', counts);
+}
 
 io.on('connection', async (socket) => {
   onlineUsers++;
   io.emit('online', onlineUsers);
+  broadcastRoomCounts(); // 接続時にルーム人数を送信
   
   socket.on('joinChannel', async (channelId) => {
     const prevChannel = userChannels.get(socket.id);
@@ -675,19 +741,53 @@ io.on('connection', async (socket) => {
     if (data) socket.emit('history', data.reverse());
   });
   
-  // 画面共有
-  socket.on('startScreenShare', ({ username }) => {
-    screenSharers.set(socket.id, username);
-    socket.broadcast.emit('screenShareStarted', { socketId: socket.id, username });
+  // 画面共有ルーム
+  socket.on('joinScreenRoom', ({ roomId, username }) => {
+    if (screenRooms[roomId].size >= 4) {
+      socket.emit('screenShareFull');
+      return;
+    }
+    screenRooms[roomId].add(socket.id);
+    socket.join('screen_room_' + roomId);
+    broadcastRoomCounts();
+    
+    // 既に誰かが配信中なら通知
+    if (roomSharers[roomId]) {
+      socket.emit('screenShareStarted', { socketId: roomSharers[roomId].id, username: roomSharers[roomId].name });
+    }
   });
   
-  socket.on('stopScreenShare', () => {
-    screenSharers.delete(socket.id);
-    screenShareViewers.delete(socket.id); // 視聴者カウントリセット
-    socket.broadcast.emit('screenShareStopped', { socketId: socket.id });
+  socket.on('leaveScreenRoom', ({ roomId }) => {
+    if (roomId && screenRooms[roomId]) {
+      screenRooms[roomId].delete(socket.id);
+      socket.leave('screen_room_' + roomId);
+      if (roomSharers[roomId] && roomSharers[roomId].id === socket.id) {
+        roomSharers[roomId] = null;
+        io.to('screen_room_' + roomId).emit('screenShareStopped', { socketId: socket.id });
+      }
+      broadcastRoomCounts();
+    }
   });
   
-  socket.on('requestScreenShare', ({ targetId }) => {
+  socket.on('startScreenShare', ({ roomId, username }) => {
+    if (roomSharers[roomId]) {
+      socket.emit('screenShareFull');
+      return;
+    }
+    roomSharers[roomId] = { id: socket.id, name: username };
+    screenSharers.set(socket.id, { roomId, username });
+    socket.to('screen_room_' + roomId).emit('screenShareStarted', { socketId: socket.id, username });
+  });
+  
+  socket.on('stopScreenShare', ({ roomId }) => {
+    if (roomId && roomSharers[roomId] && roomSharers[roomId].id === socket.id) {
+      roomSharers[roomId] = null;
+      screenSharers.delete(socket.id);
+      io.to('screen_room_' + roomId).emit('screenShareStopped', { socketId: socket.id });
+    }
+  });
+  
+  socket.on('requestScreenShare', ({ targetId, roomId }) => {
     // 視聴者数チェック
     const currentViewers = screenShareViewers.get(targetId) || 0;
     if (currentViewers >= MAX_VIEWERS) {
@@ -729,10 +829,20 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     onlineUsers--;
     userChannels.delete(socket.id);
-    if (screenSharers.has(socket.id)) {
-      screenSharers.delete(socket.id);
-      socket.broadcast.emit('screenShareStopped', { socketId: socket.id });
+    
+    // 画面共有ルームからの退出処理
+    for (let roomId in screenRooms) {
+      if (screenRooms[roomId].has(socket.id)) {
+        screenRooms[roomId].delete(socket.id);
+        if (roomSharers[roomId] && roomSharers[roomId].id === socket.id) {
+          roomSharers[roomId] = null;
+          io.to('screen_room_' + roomId).emit('screenShareStopped', { socketId: socket.id });
+        }
+      }
     }
+    screenSharers.delete(socket.id);
+    broadcastRoomCounts();
+    
     io.emit('online', onlineUsers);
   });
 });
