@@ -23,10 +23,9 @@ app.use(session({
 }));
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://znlklskqcuybcnrflieq.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpubGtsc2txY3V5YmNucmZsaWVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY4MzQ4NDMsImV4cCI6MjA1MjQxMDg0M30.8GvUz_hLhp5-p-EH2LdlJeHaRDHIJxl92C9cjJEKT84';
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpubGtsc2txY3V5YmNucmZsaWVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNDA1MTgsImV4cCI6MjA4MzgxNjUxOH0.PgGy8LJqi0vsA6F9MQUxh5WQ8VJfFTT64BW2prpDXCY';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Google OAuth設定
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '251332694475-49ldp4v3mjeqhjgaobsvg1ji50aitslq.apps.googleusercontent.com';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'https://sidcha.onrender.com/auth/google/callback';
@@ -35,10 +34,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const validTokens = new Set();
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-// オンラインユーザー管理
-const onlineUsers = new Map(); // socketId -> { userId, name, picture }
-const userSockets = new Map(); // userId -> socketId
-const socketUsers = new Map(); // socketId -> userId
+const onlineUsers = new Map();
+const userSockets = new Map();
+const socketUsers = new Map();
 
 const STAMPS = [
   { id: 'like', emoji: '👍' }, { id: 'love', emoji: '❤️' },
@@ -53,7 +51,6 @@ const STAMPS = [
   { id: 'ok', emoji: '👌' }, { id: 'wave', emoji: '👋' }
 ];
 
-// 画面共有ルーム
 const screenRooms = { 1: new Set(), 2: new Set(), 3: new Set() };
 const roomSharers = { 1: null, 2: null, 3: null };
 const screenSharers = new Map();
@@ -90,7 +87,6 @@ app.get('/auth/google/callback', async (req, res) => {
   if (!code) return res.redirect('/?error=no_code');
 
   try {
-    // トークン取得
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -104,13 +100,11 @@ app.get('/auth/google/callback', async (req, res) => {
     });
     const tokens = await tokenRes.json();
 
-    // ユーザー情報取得
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     const googleUser = await userRes.json();
 
-    // DBにユーザー保存/更新
     const { data: existingUser } = await supabase
       .from('users')
       .select('*')
@@ -141,7 +135,6 @@ app.get('/auth/google/callback', async (req, res) => {
       user = data;
     }
 
-    // セッションに保存
     req.session.user = user;
     res.redirect('/?login=success');
   } catch (err) {
@@ -203,7 +196,6 @@ app.post('/api/channels', async (req, res) => {
   }
 });
 
-// ユーザー一覧（メンション用）
 app.get('/api/users', async (req, res) => {
   try {
     console.log('Fetching users...');
@@ -220,7 +212,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// ピン留めメッセージ取得
 app.get('/api/pins/:channelId', async (req, res) => {
   try {
     const { channelId } = req.params;
@@ -236,7 +227,6 @@ app.get('/api/pins/:channelId', async (req, res) => {
   }
 });
 
-// ピン留め追加
 app.post('/api/pins', async (req, res) => {
   try {
     const { message_id, pinned_by } = req.body;
@@ -253,7 +243,6 @@ app.post('/api/pins', async (req, res) => {
   }
 });
 
-// ピン留め解除
 app.delete('/api/pins/:messageId', async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -282,7 +271,6 @@ async function uploadMedia(base64Data, mediaType) {
   } catch (err) { return null; }
 }
 
-// メンション解析
 function parseMentions(message) {
   const mentionRegex = /@(\S+)/g;
   const mentions = [];
@@ -293,7 +281,7 @@ function parseMentions(message) {
   return mentions;
 }
 
-// ========== メインページ ==========
+// ========== メインページ（Liquid Glass テーマ） ==========
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -303,164 +291,698 @@ app.get('/', (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>siDChat</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #36393f; color: #dcddde; height: 100vh; display: flex; }
     
-    #sidebar { width: 240px; background: #2f3136; display: flex; flex-direction: column; }
-    #server-header { padding: 15px; background: #2f3136; border-bottom: 1px solid #202225; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
-    #user-section { padding: 10px; background: #292b2f; border-top: 1px solid #202225; display: flex; align-items: center; gap: 10px; }
-    #user-avatar { width: 32px; height: 32px; border-radius: 50%; }
+    body { 
+      font-family: 'Noto Sans JP', sans-serif; 
+      background: url('https://min-chi.material.jp/mc/materials/background-c/summer_beach/summer_beach_1.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #333; 
+      height: 100vh; 
+      display: flex; 
+      padding: 20px;
+      gap: 20px;
+    }
+    
+    /* ===== Liquid Glass Effect ===== */
+    .glass {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 24px;
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 1px rgba(255, 255, 255, 0.9),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.05);
+    }
+    
+    .glass-light {
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 16px;
+    }
+    
+    .glass-btn {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .glass-btn:hover {
+      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* ===== Sidebar ===== */
+    #sidebar { 
+      width: 260px; 
+      display: flex; 
+      flex-direction: column; 
+      padding: 20px;
+      gap: 15px;
+    }
+    
+    #server-header { 
+      padding: 15px; 
+      font-weight: 700; 
+      font-size: 20px; 
+      text-align: center;
+      color: #2c3e50;
+      background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+      border-radius: 16px;
+    }
+    
+    #user-section { 
+      padding: 15px; 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+    }
+    
+    #user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.8); }
     #user-info { flex: 1; }
-    #user-name { font-size: 14px; font-weight: bold; color: #fff; }
-    #user-status { font-size: 11px; color: #3ba55d; }
-    #login-btn, #logout-btn { background: #5865f2; border: none; padding: 8px 12px; border-radius: 4px; color: white; cursor: pointer; font-size: 12px; }
-    #logout-btn { background: #ed4245; }
+    #user-name { font-size: 14px; font-weight: 600; color: #2c3e50; }
+    #user-status { font-size: 11px; color: #27ae60; }
     
-    #channels-header { padding: 10px 15px; color: #72767d; font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-    #add-channel-btn { background: none; border: none; color: #72767d; font-size: 18px; cursor: pointer; }
-    #channel-list { flex: 1; overflow-y: auto; }
-    .channel-item { padding: 8px 15px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: #72767d; display: flex; align-items: center; gap: 8px; }
-    .channel-item:hover { background: #393c43; color: #dcddde; }
-    .channel-item.active { background: #393c43; color: #fff; }
-    .channel-item::before { content: '#'; font-size: 18px; }
+    #login-btn { 
+      width: 100%;
+      padding: 12px 20px; 
+      color: #2c3e50;
+      font-size: 14px;
+      font-weight: 600;
+    }
     
-    #voice-channels-header { padding: 10px 15px; color: #72767d; font-size: 12px; font-weight: bold; margin-top: 10px; border-top: 1px solid #202225; }
-    .voice-channel-item { padding: 8px 15px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: #72767d; display: flex; justify-content: space-between; align-items: center; }
-    .voice-channel-item:hover { background: #393c43; color: #dcddde; }
-    .voice-channel-item.active { background: #3ba55d33; color: #3ba55d; }
-    .voice-channel-item.sharing { background: #ed424533; color: #ed4245; }
-    .viewer-count { font-size: 11px; background: #202225; padding: 2px 6px; border-radius: 10px; }
+    #logout-btn { 
+      padding: 8px 12px; 
+      background: rgba(231, 76, 60, 0.2);
+      color: #c0392b;
+      font-size: 12px;
+    }
     
-    #main { flex: 1; display: flex; flex-direction: column; }
-    #header { background: #36393f; padding: 15px 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid #202225; display: flex; justify-content: space-between; align-items: center; }
-    #channel-name::before { content: '# '; color: #72767d; }
-    .header-buttons { display: flex; gap: 10px; }
-    .header-btn { background: #4f545c; border: none; padding: 6px 12px; border-radius: 4px; color: #dcddde; cursor: pointer; font-size: 13px; }
-    .header-btn:hover { background: #5d6269; }
-    #online-count { color: #72767d; font-size: 14px; }
+    #channels-header { 
+      padding: 10px 15px; 
+      color: #7f8c8d; 
+      font-size: 12px; 
+      font-weight: 600; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
     
-    #screen-share-container { display: none; background: #202225; padding: 10px; border-bottom: 1px solid #202225; }
+    #add-channel-btn { 
+      background: none; 
+      border: none; 
+      color: #7f8c8d; 
+      font-size: 20px; 
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #add-channel-btn:hover { color: #3498db; transform: scale(1.2); }
+    
+    #channel-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    
+    .channel-item { 
+      padding: 12px 15px; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      color: #5d6d7e; 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+    .channel-item:hover { 
+      background: rgba(255, 255, 255, 0.6); 
+      color: #2c3e50;
+      transform: translateX(5px);
+    }
+    .channel-item.active { 
+      background: rgba(52, 152, 219, 0.2); 
+      color: #2980b9;
+      font-weight: 600;
+    }
+    .channel-item::before { content: '#'; font-size: 18px; opacity: 0.6; }
+    
+    #voice-channels-header { 
+      padding: 10px 15px; 
+      color: #7f8c8d; 
+      font-size: 12px; 
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 10px;
+    }
+    
+    .voice-channel-item { 
+      padding: 12px 15px; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      color: #5d6d7e; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+    .voice-channel-item:hover { background: rgba(255, 255, 255, 0.6); }
+    .voice-channel-item.active { background: rgba(46, 204, 113, 0.2); color: #27ae60; }
+    .voice-channel-item.sharing { background: rgba(231, 76, 60, 0.2); color: #c0392b; }
+    .viewer-count { 
+      font-size: 11px; 
+      background: rgba(0,0,0,0.1); 
+      padding: 3px 8px; 
+      border-radius: 10px;
+    }
+    
+    /* ===== Main Area ===== */
+    #main { 
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; 
+      padding: 20px;
+      gap: 15px;
+    }
+    
+    #header { 
+      padding: 15px 20px; 
+      font-size: 18px; 
+      font-weight: 600; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      color: #2c3e50;
+    }
+    
+    #channel-name::before { content: '# '; opacity: 0.5; }
+    
+    .header-buttons { display: flex; gap: 10px; align-items: center; }
+    
+    .header-btn { 
+      padding: 8px 16px; 
+      color: #5d6d7e;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    #online-count { 
+      color: #27ae60; 
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 12px;
+      background: rgba(46, 204, 113, 0.15);
+      border-radius: 20px;
+    }
+    
+    #screen-share-container { 
+      display: none; 
+      padding: 15px;
+    }
     #screen-share-container.active { display: block; }
-    #screen-share-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: #3ba55d; font-weight: bold; }
-    #screen-share-video { width: 100%; max-height: 400px; background: #000; border-radius: 8px; }
-    #close-screen-share { background: #ed4245; border: none; padding: 5px 10px; border-radius: 4px; color: white; cursor: pointer; font-size: 12px; }
+    #screen-share-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 10px; 
+      color: #27ae60; 
+      font-weight: 600;
+    }
+    #screen-share-video { 
+      width: 100%; 
+      max-height: 400px; 
+      background: #000; 
+      border-radius: 16px;
+    }
+    #close-screen-share { 
+      padding: 6px 12px;
+      background: rgba(231, 76, 60, 0.2);
+      color: #c0392b;
+      font-size: 12px;
+    }
     
-    #messages { flex: 1; overflow-y: auto; padding: 20px; position: relative; }
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #72767d; }
-    .spinner { width: 40px; height: 40px; border: 4px solid #40444b; border-top: 4px solid #5865f2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+    /* ===== Messages ===== */
+    #messages { 
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 20px; 
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    #loading { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      text-align: center; 
+      color: #7f8c8d;
+    }
+    
+    .spinner { 
+      width: 40px; 
+      height: 40px; 
+      border: 4px solid rgba(52, 152, 219, 0.2); 
+      border-top: 4px solid #3498db; 
+      border-radius: 50%; 
+      animation: spin 1s linear infinite; 
+      margin: 0 auto 15px;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .message { margin-bottom: 15px; display: flex; gap: 10px; position: relative; }
+    .message { 
+      display: flex; 
+      gap: 12px; 
+      position: relative;
+      padding: 12px 15px;
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+    .message:hover { 
+      background: rgba(255, 255, 255, 0.5);
+    }
     .message:hover .message-actions { display: flex; }
-    .message.announcement { background: #5865f233; padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; }
-    .message.pinned { background: #faa61a22; border-left: 3px solid #faa61a; padding-left: 10px; }
-    .message-actions { display: none; position: absolute; top: -10px; right: 10px; background: #2f3136; border-radius: 4px; padding: 4px; gap: 4px; }
-    .message-actions button { background: #40444b; border: none; padding: 4px 8px; border-radius: 3px; color: #dcddde; cursor: pointer; font-size: 12px; }
-    .message-actions button:hover { background: #5865f2; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #5865f2; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; overflow: hidden; }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar.roblox { background: #00a2ff; }
-    .avatar.admin { background: #ed4245; }
-    .content { flex: 1; }
-    .username { font-weight: bold; color: #fff; margin-bottom: 3px; }
-    .username .time { font-size: 12px; color: #72767d; font-weight: normal; margin-left: 8px; }
-    .text { line-height: 1.4; word-wrap: break-word; }
-    .mention { background: #5865f233; color: #dee0fc; padding: 0 2px; border-radius: 3px; cursor: pointer; }
-    .mention:hover { background: #5865f2; color: #fff; }
-    .stamp-msg { font-size: 48px; line-height: 1.2; }
-    .msg-image, .msg-video { max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer; }
-    .roblox-badge, .admin-badge { color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 5px; }
-    .roblox-badge { background: #00a2ff; }
-    .admin-badge { background: #ed4245; }
     
-    #input-area { padding: 15px 20px; background: #40444b; margin: 0 20px 20px 20px; border-radius: 8px; }
-    #media-preview { display: none; margin-bottom: 10px; position: relative; }
-    #media-preview img, #media-preview video { max-width: 200px; max-height: 150px; border-radius: 8px; }
-    #media-preview .remove-btn { position: absolute; top: -8px; right: -8px; background: #ed4245; border: none; border-radius: 50%; width: 24px; height: 24px; color: white; cursor: pointer; font-size: 14px; }
-    #upload-status { display: none; color: #5865f2; font-size: 12px; margin-bottom: 10px; }
+    .message.announcement { 
+      background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(155, 89, 182, 0.2));
+      border-left: 4px solid #3498db;
+    }
+    
+    .message-actions { 
+      display: none; 
+      position: absolute; 
+      top: -5px; 
+      right: 10px;
+      gap: 4px;
+    }
+    .message-actions button { 
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    
+    .avatar { 
+      width: 44px; 
+      height: 44px; 
+      border-radius: 50%; 
+      background: linear-gradient(135deg, #3498db, #9b59b6); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-weight: bold; 
+      flex-shrink: 0; 
+      overflow: hidden;
+      color: white;
+      font-size: 16px;
+      border: 2px solid rgba(255,255,255,0.8);
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar.roblox { background: linear-gradient(135deg, #00a2ff, #0066cc); }
+    .avatar.admin { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    
+    .content { flex: 1; }
+    .username { 
+      font-weight: 600; 
+      color: #2c3e50; 
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .username .time { 
+      font-size: 11px; 
+      color: #95a5a6; 
+      font-weight: 400;
+    }
+    .text { 
+      line-height: 1.6; 
+      word-wrap: break-word;
+      color: #34495e;
+    }
+    
+    .mention { 
+      background: rgba(52, 152, 219, 0.2); 
+      color: #2980b9; 
+      padding: 1px 4px; 
+      border-radius: 4px; 
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .mention:hover { background: rgba(52, 152, 219, 0.4); }
+    
+    .stamp-msg { font-size: 48px; line-height: 1.2; }
+    
+    .msg-image, .msg-video { 
+      max-width: 400px; 
+      max-height: 300px; 
+      border-radius: 12px; 
+      margin-top: 8px; 
+      cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.8);
+    }
+    
+    .roblox-badge, .admin-badge { 
+      color: white; 
+      font-size: 10px; 
+      padding: 2px 8px; 
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .roblox-badge { background: linear-gradient(135deg, #00a2ff, #0066cc); }
+    .admin-badge { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    
+    /* ===== Input Area ===== */
+    #input-area { 
+      padding: 15px 20px;
+    }
+    
+    #media-preview { 
+      display: none; 
+      margin-bottom: 10px; 
+      position: relative;
+    }
+    #media-preview img, #media-preview video { 
+      max-width: 200px; 
+      max-height: 150px; 
+      border-radius: 12px;
+    }
+    #media-preview .remove-btn { 
+      position: absolute; 
+      top: -8px; 
+      right: -8px; 
+      background: #e74c3c; 
+      border: none; 
+      border-radius: 50%; 
+      width: 24px; 
+      height: 24px; 
+      color: white; 
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    #upload-status { 
+      display: none; 
+      color: #3498db; 
+      font-size: 12px; 
+      margin-bottom: 10px;
+    }
     #upload-status.show { display: block; }
-    #input-row { display: flex; gap: 10px; }
-    #username-input { width: 120px; background: #202225; border: none; padding: 10px; border-radius: 5px; color: #dcddde; font-size: 14px; }
-    #message-input { flex: 1; background: transparent; border: none; padding: 10px; color: #dcddde; font-size: 14px; outline: none; }
-    .input-btn { background: #5865f2; border: none; padding: 10px 15px; border-radius: 5px; color: white; cursor: pointer; font-size: 14px; }
-    .input-btn:hover { background: #4752c4; }
+    
+    #input-row { display: flex; gap: 10px; align-items: center; }
+    
+    #username-input { 
+      width: 120px; 
+      background: rgba(255, 255, 255, 0.7); 
+      border: 1px solid rgba(255,255,255,0.8);
+      padding: 12px 15px; 
+      border-radius: 12px; 
+      color: #2c3e50; 
+      font-size: 14px;
+      outline: none;
+      transition: all 0.3s;
+    }
+    #username-input:focus {
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+    
+    #message-input { 
+      flex: 1; 
+      background: rgba(255, 255, 255, 0.5); 
+      border: none; 
+      padding: 12px 15px; 
+      border-radius: 12px;
+      color: #2c3e50; 
+      font-size: 14px; 
+      outline: none;
+    }
+    #message-input::placeholder { color: #95a5a6; }
+    
+    .input-btn { 
+      padding: 12px 18px;
+      color: #2c3e50;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .input-btn.primary {
+      background: linear-gradient(135deg, rgba(52, 152, 219, 0.8), rgba(155, 89, 182, 0.8));
+      color: white;
+    }
+    
     #send-btn:disabled { opacity: 0.5; }
     #file-input { display: none; }
     
-    /* メンションサジェスト */
-    #mention-suggest { display: none; position: absolute; bottom: 100%; left: 0; background: #2f3136; border-radius: 8px; padding: 5px 0; margin-bottom: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); max-height: 200px; overflow-y: auto; min-width: 200px; }
+    /* ===== Mention Suggest ===== */
+    #mention-suggest { 
+      display: none; 
+      position: absolute; 
+      bottom: 100%; 
+      left: 0;
+      padding: 8px 0; 
+      margin-bottom: 8px;
+      max-height: 200px; 
+      overflow-y: auto; 
+      min-width: 220px;
+    }
     #mention-suggest.show { display: block; }
-    .mention-item { padding: 8px 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-    .mention-item:hover { background: #40444b; }
-    .mention-item img { width: 24px; height: 24px; border-radius: 50%; }
-    .mention-item .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .mention-item .status-dot.online { background: #3ba55d; }
-    .mention-item .status-dot.offline { background: #747f8d; }
     
-    #stamp-panel { display: none; position: absolute; bottom: 100%; right: 0; background: #2f3136; border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 280px; }
+    .mention-item { 
+      padding: 10px 15px; 
+      cursor: pointer; 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      transition: all 0.2s;
+    }
+    .mention-item:hover { background: rgba(52, 152, 219, 0.1); }
+    .mention-item img { width: 28px; height: 28px; border-radius: 50%; }
+    .mention-item .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .mention-item .status-dot.online { background: #27ae60; }
+    .mention-item .status-dot.offline { background: #95a5a6; }
+    
+    /* ===== Stamp Panel ===== */
+    #stamp-panel { 
+      display: none; 
+      position: absolute; 
+      bottom: 100%; 
+      right: 0;
+      padding: 15px; 
+      margin-bottom: 10px;
+      width: 300px;
+    }
     #stamp-panel.show { display: block; }
     .stamp-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-    .stamp-item { font-size: 24px; padding: 8px; text-align: center; cursor: pointer; border-radius: 5px; }
-    .stamp-item:hover { background: #40444b; }
-    .stamp-title { color: #72767d; font-size: 12px; margin-bottom: 8px; font-weight: bold; }
+    .stamp-item { 
+      font-size: 24px; 
+      padding: 10px; 
+      text-align: center; 
+      cursor: pointer; 
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+    .stamp-item:hover { 
+      background: rgba(52, 152, 219, 0.2);
+      transform: scale(1.2);
+    }
+    .stamp-title { 
+      color: #7f8c8d; 
+      font-size: 12px; 
+      margin-bottom: 10px; 
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
     #stamp-container { position: relative; }
     
-    #media-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
-    #media-modal img, #media-modal video { max-width: 90%; max-height: 90%; border-radius: 8px; }
+    /* ===== Modal ===== */
+    #media-modal { 
+      display: none; 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      background: rgba(0, 0, 0, 0.85); 
+      backdrop-filter: blur(10px);
+      z-index: 1000; 
+      justify-content: center; 
+      align-items: center; 
+      cursor: pointer;
+    }
+    #media-modal img, #media-modal video { 
+      max-width: 90%; 
+      max-height: 90%; 
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
     
-    #channel-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+    #channel-modal { 
+      display: none; 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      z-index: 1000; 
+      justify-content: center; 
+      align-items: center;
+    }
     #channel-modal.show { display: flex; }
-    .modal-content { background: #36393f; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; }
-    .modal-content h3 { color: #fff; margin-bottom: 15px; }
-    .modal-content input { width: 100%; background: #202225; border: none; padding: 12px; border-radius: 5px; color: #dcddde; font-size: 14px; margin-bottom: 15px; }
+    
+    .modal-content { 
+      padding: 30px; 
+      width: 90%; 
+      max-width: 400px;
+    }
+    .modal-content h3 { 
+      color: #2c3e50; 
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    .modal-content input { 
+      width: 100%; 
+      background: rgba(255, 255, 255, 0.8); 
+      border: 1px solid rgba(255,255,255,0.9);
+      padding: 15px; 
+      border-radius: 12px; 
+      color: #2c3e50; 
+      font-size: 14px; 
+      margin-bottom: 20px;
+      outline: none;
+    }
     .modal-buttons { display: flex; gap: 10px; }
-    .modal-buttons button { flex: 1; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
-    .modal-buttons .cancel { background: #4f545c; color: #fff; }
-    .modal-buttons .create { background: #5865f2; color: #fff; }
+    .modal-buttons button { 
+      flex: 1; 
+      padding: 12px; 
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .modal-buttons .cancel { 
+      background: rgba(149, 165, 166, 0.3);
+      border: none;
+      color: #5d6d7e;
+      cursor: pointer;
+    }
+    .modal-buttons .create { 
+      background: linear-gradient(135deg, #3498db, #9b59b6);
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
     
-    /* ピン留めパネル */
-    #pins-panel { display: none; position: fixed; top: 60px; right: 20px; background: #2f3136; border-radius: 8px; width: 350px; max-height: 500px; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 100; }
+    /* ===== Pins Panel ===== */
+    #pins-panel { 
+      display: none; 
+      position: fixed; 
+      top: 80px; 
+      right: 40px;
+      width: 350px; 
+      max-height: 500px; 
+      overflow-y: auto;
+      z-index: 100;
+    }
     #pins-panel.show { display: block; }
-    #pins-header { padding: 15px; border-bottom: 1px solid #202225; font-weight: bold; display: flex; justify-content: space-between; }
-    .pinned-message { padding: 10px 15px; border-bottom: 1px solid #202225; }
-    .pinned-message:hover { background: #36393f; }
+    #pins-header { 
+      padding: 15px 20px; 
+      font-weight: 600;
+      display: flex; 
+      justify-content: space-between;
+      color: #2c3e50;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    .pinned-message { 
+      padding: 12px 20px; 
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .pinned-message:hover { background: rgba(255, 255, 255, 0.5); }
     
-    /* オンラインメンバー */
-    #members-panel { width: 240px; background: #2f3136; padding: 15px; display: none; }
+    /* ===== Members Panel ===== */
+    #members-panel { 
+      width: 240px;
+      padding: 20px;
+      display: none;
+    }
     #members-panel.show { display: block; }
-    #members-header { color: #72767d; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
-    .member-item { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
-    .member-item img { width: 32px; height: 32px; border-radius: 50%; }
-    .member-item .status-indicator { width: 10px; height: 10px; border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid #2f3136; }
-    .member-item .status-indicator.online { background: #3ba55d; }
-    .member-item .status-indicator.offline { background: #747f8d; }
-    .member-item .status-indicator.away { background: #faa61a; }
+    #members-header { 
+      color: #7f8c8d; 
+      font-size: 12px; 
+      font-weight: 600; 
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .member-item { 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      padding: 8px 0;
+    }
+    .member-item img { 
+      width: 36px; 
+      height: 36px; 
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.8);
+    }
     .member-avatar-wrapper { position: relative; }
+    .member-item .status-indicator { 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      position: absolute; 
+      bottom: 0; 
+      right: 0; 
+      border: 2px solid rgba(255,255,255,0.9);
+    }
+    .member-item .status-indicator.online { background: #27ae60; }
+    .member-item .status-indicator.offline { background: #95a5a6; }
+    
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { 
+      background: rgba(0, 0, 0, 0.2); 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <div id="server-header">siDChat</div>
+  <div id="sidebar" class="glass">
+    <div id="server-header">🏖️ siDChat</div>
     <div id="channels-header">チャンネル<button id="add-channel-btn">+</button></div>
     <div id="channel-list"></div>
-    <div id="voice-channels-header">画面共有</div>
+    <div id="voice-channels-header">🖥️ 画面共有</div>
     <div id="voice-channel-list">
       <div class="voice-channel-item" id="screen-room-1" onclick="joinScreenRoom(1)">
-        <span>🖥️ 共有ルーム1</span>
+        <span>共有ルーム1</span>
         <span class="viewer-count" id="room1-count">0人</span>
       </div>
       <div class="voice-channel-item" id="screen-room-2" onclick="joinScreenRoom(2)">
-        <span>🖥️ 共有ルーム2</span>
+        <span>共有ルーム2</span>
         <span class="viewer-count" id="room2-count">0人</span>
       </div>
       <div class="voice-channel-item" id="screen-room-3" onclick="joinScreenRoom(3)">
-        <span>🖥️ 共有ルーム3</span>
+        <span>共有ルーム3</span>
         <span class="viewer-count" id="room3-count">0人</span>
       </div>
     </div>
-    <div id="user-section">
+    <div id="user-section" class="glass-light">
       <div id="guest-login">
-        <button id="login-btn" onclick="googleLogin()">🔐 Googleでログイン</button>
+        <button id="login-btn" class="glass-btn" onclick="googleLogin()">🔐 Googleでログイン</button>
       </div>
       <div id="logged-in-user" style="display:none;">
         <img id="user-avatar" src="" alt="">
@@ -468,57 +990,57 @@ app.get('/', (req, res) => {
           <div id="user-name"></div>
           <div id="user-status">🟢 オンライン</div>
         </div>
-        <button id="logout-btn" onclick="logout()">↩️</button>
+        <button id="logout-btn" class="glass-btn" onclick="logout()">↩️</button>
       </div>
     </div>
   </div>
   
-  <div id="main">
+  <div id="main" class="glass">
     <div id="header">
       <span id="channel-name">general</span>
       <div class="header-buttons">
-        <button class="header-btn" onclick="togglePins()">📌 ピン留め</button>
-        <button class="header-btn" onclick="toggleMembers()">👥 メンバー</button>
+        <button class="header-btn glass-btn" onclick="togglePins()">📌 ピン留め</button>
+        <button class="header-btn glass-btn" onclick="toggleMembers()">👥 メンバー</button>
         <span id="online-count">0人がオンライン</span>
       </div>
     </div>
-    <div id="screen-share-container">
+    <div id="screen-share-container" class="glass-light">
       <div id="screen-share-header">
         <span>🖥️ <span id="sharer-name">誰か</span>が画面を共有中</span>
-        <button id="close-screen-share">✕ 閉じる</button>
+        <button id="close-screen-share" class="glass-btn">✕ 閉じる</button>
       </div>
       <video id="screen-share-video" autoplay playsinline></video>
     </div>
-    <div id="pins-panel">
-      <div id="pins-header">📌 ピン留めされたメッセージ <button onclick="togglePins()" style="background:none;border:none;color:#dcddde;cursor:pointer;">✕</button></div>
+    <div id="pins-panel" class="glass">
+      <div id="pins-header">📌 ピン留め <button onclick="togglePins()" style="background:none;border:none;color:#7f8c8d;cursor:pointer;font-size:18px;">✕</button></div>
       <div id="pins-list"></div>
     </div>
     <div id="messages">
       <div id="loading"><div class="spinner"></div><div>ロードしています...</div></div>
     </div>
-    <div id="input-area">
+    <div id="input-area" class="glass-light">
       <div id="upload-status">📤 アップロード中...</div>
       <div id="media-preview">
         <img id="preview-img" src="" style="display:none;">
         <video id="preview-video" src="" style="display:none;" controls></video>
         <button class="remove-btn" onclick="removeMedia()">×</button>
       </div>
-      <div id="mention-suggest"></div>
+      <div id="mention-suggest" class="glass"></div>
       <div id="input-row">
         <input type="text" id="username-input" placeholder="名前" maxlength="20">
         <input type="text" id="message-input" placeholder="メッセージを送信 (@でメンション)" maxlength="500">
         <input type="file" id="file-input" accept="image/*,video/*">
-        <button id="media-btn" class="input-btn">📷</button>
+        <button id="media-btn" class="input-btn glass-btn">📷</button>
         <div id="stamp-container">
-          <button id="stamp-btn" class="input-btn">😀</button>
-          <div id="stamp-panel"><div class="stamp-title">スタンプ</div><div class="stamp-grid" id="stamp-grid"></div></div>
+          <button id="stamp-btn" class="input-btn glass-btn">😀</button>
+          <div id="stamp-panel" class="glass"><div class="stamp-title">スタンプ</div><div class="stamp-grid" id="stamp-grid"></div></div>
         </div>
-        <button id="send-btn" class="input-btn">送信</button>
+        <button id="send-btn" class="input-btn glass-btn primary">送信</button>
       </div>
     </div>
   </div>
   
-  <div id="members-panel">
+  <div id="members-panel" class="glass">
     <div id="members-header">オンライン — <span id="members-count">0</span></div>
     <div id="members-list"></div>
   </div>
@@ -529,8 +1051,8 @@ app.get('/', (req, res) => {
   </div>
   
   <div id="channel-modal">
-    <div class="modal-content">
-      <h3>チャンネルを作成</h3>
+    <div class="modal-content glass">
+      <h3>✨ チャンネルを作成</h3>
       <input type="text" id="new-channel-name" placeholder="チャンネル名" maxlength="20">
       <div class="modal-buttons">
         <button class="cancel" onclick="closeChannelModal()">キャンセル</button>
@@ -593,7 +1115,6 @@ app.get('/', (req, res) => {
       stampGrid.appendChild(div);
     });
 
-    // ========== ユーザー認証 ==========
     async function checkAuth() {
       const res = await fetch('/auth/me');
       const data = await res.json();
@@ -620,7 +1141,6 @@ app.get('/', (req, res) => {
     
     checkAuth();
 
-    // ========== ユーザー一覧取得 ==========
     async function loadUsers() {
       const res = await fetch('/api/users');
       const data = await res.json();
@@ -628,7 +1148,6 @@ app.get('/', (req, res) => {
     }
     loadUsers();
 
-    // ========== メンションサジェスト ==========
     messageInput.addEventListener('input', (e) => {
       const val = e.target.value;
       const lastAt = val.lastIndexOf('@');
@@ -659,7 +1178,6 @@ app.get('/', (req, res) => {
       messageInput.focus();
     }
 
-    // ========== ピン留め ==========
     function togglePins() {
       pinsPanel.classList.toggle('show');
       if (pinsPanel.classList.contains('show')) loadPins();
@@ -677,7 +1195,7 @@ app.get('/', (req, res) => {
           '</div>'
         ).join('');
       } else {
-        list.innerHTML = '<div style="padding:15px;color:#72767d;">ピン留めされたメッセージはありません</div>';
+        list.innerHTML = '<div style="padding:15px;color:#7f8c8d;">ピン留めされたメッセージはありません</div>';
       }
     }
     
@@ -694,7 +1212,6 @@ app.get('/', (req, res) => {
       await fetch('/api/pins/' + messageId, { method: 'DELETE' });
     }
 
-    // ========== メンバーパネル ==========
     function toggleMembers() {
       membersPanel.classList.toggle('show');
     }
@@ -712,7 +1229,6 @@ app.get('/', (req, res) => {
       ).join('');
     }
 
-    // ========== 画面共有ルーム ==========
     async function joinScreenRoom(roomId) {
       const username = usernameInput.value.trim() || currentUser?.name || 'Anonymous';
       if (currentScreenRoom === roomId) { leaveScreenRoom(); return; }
@@ -762,7 +1278,6 @@ app.get('/', (req, res) => {
       screenShareVideo.srcObject = null;
     };
 
-    // WebRTC
     socket.on('screenShareStarted', async ({ socketId, username }) => {
       if (socketId === socket.id) return;
       sharerNameSpan.textContent = username;
@@ -812,7 +1327,6 @@ app.get('/', (req, res) => {
       }
     });
 
-    // ========== チャンネル ==========
     async function loadChannels() {
       const res = await fetch('/api/channels');
       const data = await res.json();
@@ -847,12 +1361,10 @@ app.get('/', (req, res) => {
     }
     channelModal.onclick = (e) => { if (e.target === channelModal) closeChannelModal(); };
 
-    // ========== メッセージ ==========
     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
     function isStampOnly(msg) { return STAMPS.some(s => s.emoji === msg.trim()); }
     
     function formatMessage(text) {
-      // メンションをハイライト
       return escapeHtml(text).replace(/@(\S+)/g, '<span class="mention">@$1</span>');
     }
 
@@ -882,11 +1394,10 @@ app.get('/', (req, res) => {
       const formattedText = isStampOnly(msgText) ? escapeHtml(msgText) : formatMessage(msgText);
       
       div.innerHTML = '<div class="' + avatarClass + '">' + avatarContent + '</div><div class="content"><div class="username">' + escapeHtml(data.username) + badge + '<span class="time">' + time + '</span></div><div class="' + textClass + '">' + formattedText + '</div>' + mediaHtml + '</div>' +
-        '<div class="message-actions"><button onclick="pinMessage(' + data.id + ')">📌</button></div>';
+        '<div class="message-actions"><button class="glass-btn" onclick="pinMessage(' + data.id + ')">📌</button></div>';
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
       
-      // メンション通知
       if (currentUser && msgText.includes('@' + currentUser.name)) {
         if (Notification.permission === 'granted') {
           new Notification('siDChat', { body: data.username + 'があなたをメンションしました' });
@@ -987,7 +1498,6 @@ app.get('/', (req, res) => {
     socket.on('messagePinned', () => { if (pinsPanel.classList.contains('show')) loadPins(); });
     socket.on('messageUnpinned', () => { if (pinsPanel.classList.contains('show')) loadPins(); });
 
-    // 通知許可リクエスト
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -1013,7 +1523,6 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// Admin API
 app.post('/admin/login', (req, res) => {
   if (req.body.password === ADMIN_PASSWORD) {
     const token = crypto.randomBytes(32).toString('hex');
@@ -1058,7 +1567,6 @@ app.delete('/admin/clear', adminAuth, async (req, res) => {
   res.json({ success: true });
 });
 
-// Socket.io
 const userChannels = new Map();
 
 io.on('connection', async (socket) => {
@@ -1083,7 +1591,6 @@ io.on('connection', async (socket) => {
     if (data) socket.emit('history', data.reverse());
   });
   
-  // 画面共有ルーム
   socket.on('joinScreenRoom', ({ roomId, username }) => {
     if (screenRooms[roomId].size >= 4) { socket.emit('screenShareFull'); return; }
     screenRooms[roomId].add(socket.id);
