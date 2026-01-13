@@ -39,7 +39,6 @@ const STAMPS = [
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/api/stamps', (req, res) => res.json({ success: true, stamps: STAMPS }));
 
-// チャンネル一覧
 app.get('/api/channels', async (req, res) => {
   try {
     const { data, error } = await supabase.from('channels').select('*').order('id');
@@ -50,7 +49,6 @@ app.get('/api/channels', async (req, res) => {
   }
 });
 
-// チャンネル作成
 app.post('/api/channels', async (req, res) => {
   try {
     const { name } = req.body;
@@ -95,93 +93,44 @@ app.get('/', (req, res) => {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #36393f; color: #dcddde; height: 100vh; display: flex; }
     
-    /* サイドバー */
-    #sidebar {
-      width: 240px;
-      background: #2f3136;
-      display: flex;
-      flex-direction: column;
-    }
-    #server-header {
-      padding: 15px;
-      background: #2f3136;
-      border-bottom: 1px solid #202225;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    #channels-header {
-      padding: 10px 15px;
-      color: #72767d;
-      font-size: 12px;
-      font-weight: bold;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    #add-channel-btn {
-      background: none;
-      border: none;
-      color: #72767d;
-      font-size: 18px;
-      cursor: pointer;
-    }
+    #sidebar { width: 240px; background: #2f3136; display: flex; flex-direction: column; }
+    #server-header { padding: 15px; background: #2f3136; border-bottom: 1px solid #202225; font-weight: bold; font-size: 16px; }
+    #channels-header { padding: 10px 15px; color: #72767d; font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+    #add-channel-btn { background: none; border: none; color: #72767d; font-size: 18px; cursor: pointer; }
     #add-channel-btn:hover { color: #dcddde; }
     #channel-list { flex: 1; overflow-y: auto; }
-    .channel-item {
-      padding: 8px 15px;
-      margin: 2px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      color: #72767d;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .channel-item { padding: 8px 15px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: #72767d; display: flex; align-items: center; gap: 8px; }
     .channel-item:hover { background: #393c43; color: #dcddde; }
     .channel-item.active { background: #393c43; color: #fff; }
     .channel-item::before { content: '#'; font-size: 18px; }
     
-    /* メインエリア */
+    /* 画面共有ボタン */
+    #screen-share-section { padding: 10px 15px; border-top: 1px solid #202225; }
+    #screen-share-btn { width: 100%; padding: 10px; background: #3ba55d; border: none; border-radius: 5px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    #screen-share-btn:hover { background: #2d8049; }
+    #screen-share-btn.sharing { background: #ed4245; }
+    #screen-share-btn.sharing:hover { background: #c73e41; }
+    
     #main { flex: 1; display: flex; flex-direction: column; }
-    #header {
-      background: #36393f;
-      padding: 15px 20px;
-      font-size: 18px;
-      font-weight: bold;
-      border-bottom: 1px solid #202225;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    #header { background: #36393f; padding: 15px 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid #202225; display: flex; justify-content: space-between; align-items: center; }
     #channel-name::before { content: '# '; color: #72767d; }
     #online-count { color: #72767d; font-size: 14px; }
-    #messages { flex: 1; overflow-y: auto; padding: 20px; position: relative; }
     
-    #loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #72767d;
-    }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid #40444b;
-      border-top: 4px solid #5865f2;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 15px;
-    }
+    /* 画面共有表示エリア */
+    #screen-share-container { display: none; background: #202225; padding: 10px; border-bottom: 1px solid #202225; }
+    #screen-share-container.active { display: block; }
+    #screen-share-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: #3ba55d; font-weight: bold; }
+    #screen-share-video { width: 100%; max-height: 400px; background: #000; border-radius: 8px; }
+    #close-screen-share { background: #ed4245; border: none; padding: 5px 10px; border-radius: 4px; color: white; cursor: pointer; font-size: 12px; }
+    
+    #messages { flex: 1; overflow-y: auto; padding: 20px; position: relative; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #72767d; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #40444b; border-top: 4px solid #5865f2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
     .message { margin-bottom: 15px; display: flex; gap: 10px; }
     .message.announcement { background: #5865f233; padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; }
-    .avatar {
-      width: 40px; height: 40px; border-radius: 50%; background: #5865f2;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: bold; flex-shrink: 0;
-    }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #5865f2; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
     .avatar.roblox { background: #00a2ff; }
     .avatar.admin { background: #ed4245; }
     .content { flex: 1; }
@@ -197,13 +146,8 @@ app.get('/', (req, res) => {
     #input-area { padding: 15px 20px; background: #40444b; margin: 0 20px 20px 20px; border-radius: 8px; }
     #media-preview { display: none; margin-bottom: 10px; position: relative; }
     #media-preview img, #media-preview video { max-width: 200px; max-height: 150px; border-radius: 8px; }
-    #media-preview .remove-btn {
-      position: absolute; top: -8px; right: -8px; background: #ed4245;
-      border: none; border-radius: 50%; width: 24px; height: 24px;
-      color: white; cursor: pointer; font-size: 14px;
-    }
+    #media-preview .remove-btn { position: absolute; top: -8px; right: -8px; background: #ed4245; border: none; border-radius: 50%; width: 24px; height: 24px; color: white; cursor: pointer; font-size: 14px; }
     .file-info { color: #72767d; font-size: 12px; margin-top: 5px; }
-    .file-size-warning { color: #faa61a; font-size: 12px; margin-top: 5px; }
     #upload-status { display: none; color: #5865f2; font-size: 12px; margin-bottom: 10px; }
     #upload-status.show { display: block; }
     #input-row { display: flex; gap: 10px; }
@@ -225,7 +169,6 @@ app.get('/', (req, res) => {
     #media-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
     #media-modal img, #media-modal video { max-width: 90%; max-height: 90%; border-radius: 8px; }
     
-    /* チャンネル作成モーダル */
     #channel-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
     #channel-modal.show { display: flex; }
     .modal-content { background: #36393f; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; }
@@ -240,17 +183,24 @@ app.get('/', (req, res) => {
 <body>
   <div id="sidebar">
     <div id="server-header">siDChat</div>
-    <div id="channels-header">
-      チャンネル
-      <button id="add-channel-btn">+</button>
-    </div>
+    <div id="channels-header">チャンネル<button id="add-channel-btn">+</button></div>
     <div id="channel-list"></div>
+    <div id="screen-share-section">
+      <button id="screen-share-btn">🖥️ 画面共有</button>
+    </div>
   </div>
   
   <div id="main">
     <div id="header">
       <span id="channel-name">general</span>
       <span id="online-count">0人がオンライン</span>
+    </div>
+    <div id="screen-share-container">
+      <div id="screen-share-header">
+        <span>🖥️ <span id="sharer-name">誰か</span>が画面を共有中</span>
+        <button id="close-screen-share">✕ 閉じる</button>
+      </div>
+      <video id="screen-share-video" autoplay playsinline></video>
     </div>
     <div id="messages">
       <div id="loading"><div class="spinner"></div><div>ロードしています...</div></div>
@@ -262,7 +212,6 @@ app.get('/', (req, res) => {
         <video id="preview-video" src="" style="display:none;" controls></video>
         <button class="remove-btn" onclick="removeMedia()">×</button>
         <div id="file-info" class="file-info"></div>
-        <div id="size-warning" class="file-size-warning"></div>
       </div>
       <div id="input-row">
         <input type="text" id="username-input" placeholder="名前" maxlength="20">
@@ -299,6 +248,16 @@ app.get('/', (req, res) => {
     const socket = io();
     let currentChannel = 1;
     let channels = [];
+    let isSharing = false;
+    let localStream = null;
+    let peerConnections = {};
+    
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
     
     const messagesDiv = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
@@ -313,6 +272,10 @@ app.get('/', (req, res) => {
     const stampGrid = document.getElementById('stamp-grid');
     const mediaModal = document.getElementById('media-modal');
     const channelModal = document.getElementById('channel-modal');
+    const screenShareBtn = document.getElementById('screen-share-btn');
+    const screenShareContainer = document.getElementById('screen-share-container');
+    const screenShareVideo = document.getElementById('screen-share-video');
+    const sharerNameSpan = document.getElementById('sharer-name');
 
     let pendingMedia = null;
     let pendingMediaType = null;
@@ -330,13 +293,137 @@ app.get('/', (req, res) => {
       const div = document.createElement('div');
       div.className = 'stamp-item';
       div.textContent = s.emoji;
-      div.onclick = () => { sendStamp(s.emoji); };
+      div.onclick = () => sendStamp(s.emoji);
       stampGrid.appendChild(div);
     });
 
     usernameInput.value = localStorage.getItem('username') || '';
 
-    // チャンネル読み込み
+    // ========== 画面共有 ==========
+    screenShareBtn.onclick = async () => {
+      if (!isSharing) {
+        try {
+          localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+          isSharing = true;
+          screenShareBtn.textContent = '🛑 共有を停止';
+          screenShareBtn.classList.add('sharing');
+          
+          const username = usernameInput.value.trim() || 'Anonymous';
+          socket.emit('startScreenShare', { username });
+          
+          localStream.getVideoTracks()[0].onended = () => {
+            stopScreenShare();
+          };
+        } catch (err) {
+          console.error('画面共有エラー:', err);
+        }
+      } else {
+        stopScreenShare();
+      }
+    };
+
+    function stopScreenShare() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      isSharing = false;
+      screenShareBtn.textContent = '🖥️ 画面共有';
+      screenShareBtn.classList.remove('sharing');
+      socket.emit('stopScreenShare');
+      
+      for (let id in peerConnections) {
+        peerConnections[id].close();
+      }
+      peerConnections = {};
+    }
+
+    document.getElementById('close-screen-share').onclick = () => {
+      screenShareContainer.classList.remove('active');
+      screenShareVideo.srcObject = null;
+    };
+
+    // WebRTC シグナリング
+    socket.on('screenShareStarted', async ({ odeSenderId, username }) => {
+      if (socketId === socket.id) return;
+      sharerNameSpan.textContent = username;
+      screenShareContainer.classList.add('active');
+      
+      const pc = new RTCPeerConnection(config);
+      peerConnections[socketId] = pc;
+      
+      pc.ontrack = (event) => {
+        screenShareVideo.srcObject = event.streams[0];
+      };
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('iceCandidate', { candidate: event.candidate, targetId: socketId });
+        }
+      };
+      
+      socket.emit('requestScreenShare', { targetId: socketId });
+    });
+
+    socket.on('screenShareRequested', async ({ requesterId }) => {
+      if (!localStream) return;
+      
+      const pc = new RTCPeerConnection(config);
+      peerConnections[requesterId] = pc;
+      
+      localStream.getTracks().forEach(track => {
+        pc.addTrack(track, localStream);
+      });
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('iceCandidate', { candidate: event.candidate, targetId: requesterId });
+        }
+      };
+      
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('offer', { offer, targetId: requesterId });
+    });
+
+    socket.on('offer', async ({ offer, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (!pc) return;
+      
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('answer', { answer, targetId: senderId });
+    });
+
+    socket.on('answer', async ({ answer, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+    });
+
+    socket.on('iceCandidate', async ({ candidate, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (pc) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
+
+    socket.on('screenShareStopped', ({ socketId }) => {
+      screenShareContainer.classList.remove('active');
+      screenShareVideo.srcObject = null;
+      if (peerConnections[socketId]) {
+        peerConnections[socketId].close();
+        delete peerConnections[socketId];
+      }
+    });
+
+    socket.on('screenShareFull', () => {
+      alert('画面共有は最大3人までです！');
+    });
+
+    // ========== チャンネル ==========
     async function loadChannels() {
       const res = await fetch('/api/channels');
       const data = await res.json();
@@ -367,16 +454,11 @@ app.get('/', (req, res) => {
       socket.emit('joinChannel', id);
     }
 
-    // チャンネル作成
-    document.getElementById('add-channel-btn').onclick = () => {
-      channelModal.classList.add('show');
-    };
-    
+    document.getElementById('add-channel-btn').onclick = () => channelModal.classList.add('show');
     function closeChannelModal() {
       channelModal.classList.remove('show');
       document.getElementById('new-channel-name').value = '';
     }
-    
     async function createChannel() {
       const name = document.getElementById('new-channel-name').value.trim();
       if (!name) return;
@@ -385,15 +467,14 @@ app.get('/', (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
       });
-      const data = await res.json();
-      if (data.success) {
+      if ((await res.json()).success) {
         closeChannelModal();
         loadChannels();
       }
     }
-    
     channelModal.onclick = (e) => { if (e.target === channelModal) closeChannelModal(); };
 
+    // ========== メッセージ ==========
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -576,6 +657,9 @@ app.delete('/admin/clear', adminAuth, async (req, res) => {
 
 let onlineUsers = 0;
 const userChannels = new Map();
+const screenSharers = new Map();
+const screenShareViewers = new Map(); // 視聴者カウント
+const MAX_VIEWERS = 3;
 
 io.on('connection', async (socket) => {
   onlineUsers++;
@@ -589,6 +673,41 @@ io.on('connection', async (socket) => {
     
     const { data } = await supabase.from('messages').select('*').eq('channel_id', channelId).order('created_at', { ascending: false }).limit(50);
     if (data) socket.emit('history', data.reverse());
+  });
+  
+  // 画面共有
+  socket.on('startScreenShare', ({ username }) => {
+    screenSharers.set(socket.id, username);
+    socket.broadcast.emit('screenShareStarted', { socketId: socket.id, username });
+  });
+  
+  socket.on('stopScreenShare', () => {
+    screenSharers.delete(socket.id);
+    screenShareViewers.delete(socket.id); // 視聴者カウントリセット
+    socket.broadcast.emit('screenShareStopped', { socketId: socket.id });
+  });
+  
+  socket.on('requestScreenShare', ({ targetId }) => {
+    // 視聴者数チェック
+    const currentViewers = screenShareViewers.get(targetId) || 0;
+    if (currentViewers >= MAX_VIEWERS) {
+      socket.emit('screenShareFull');
+      return;
+    }
+    screenShareViewers.set(targetId, currentViewers + 1);
+    io.to(targetId).emit('screenShareRequested', { requesterId: socket.id });
+  });
+  
+  socket.on('offer', ({ offer, targetId }) => {
+    io.to(targetId).emit('offer', { offer, senderId: socket.id });
+  });
+  
+  socket.on('answer', ({ answer, targetId }) => {
+    io.to(targetId).emit('answer', { answer, senderId: socket.id });
+  });
+  
+  socket.on('iceCandidate', ({ candidate, targetId }) => {
+    io.to(targetId).emit('iceCandidate', { candidate, senderId: socket.id });
   });
   
   socket.on('chat', async (data) => {
@@ -610,6 +729,10 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     onlineUsers--;
     userChannels.delete(socket.id);
+    if (screenSharers.has(socket.id)) {
+      screenSharers.delete(socket.id);
+      socket.broadcast.emit('screenShareStopped', { socketId: socket.id });
+    }
     io.emit('online', onlineUsers);
   });
 });
