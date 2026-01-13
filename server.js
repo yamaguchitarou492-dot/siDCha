@@ -12,11 +12,11 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 15e6
+  maxHttpBufferSize: 55e6 // 55MB
 });
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '55mb' }));
 
 // Supabase設定
 const supabaseUrl = process.env.SUPABASE_URL || 'https://znlklskqcuybcnrflieq.supabase.co';
@@ -25,39 +25,63 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const validTokens = new Set();
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-// スタンプ一覧
 const STAMPS = [
-  { id: 'like', emoji: '👍', name: 'いいね' },
-  { id: 'love', emoji: '❤️', name: '好き' },
-  { id: 'laugh', emoji: '😂', name: '笑' },
-  { id: 'wow', emoji: '😮', name: 'おお' },
-  { id: 'sad', emoji: '😢', name: '悲しい' },
-  { id: 'angry', emoji: '😠', name: '怒り' },
-  { id: 'fire', emoji: '🔥', name: '熱い' },
-  { id: 'cool', emoji: '😎', name: 'かっこいい' },
-  { id: 'party', emoji: '🎉', name: 'パーティー' },
-  { id: 'think', emoji: '🤔', name: '考え中' },
-  { id: 'clap', emoji: '👏', name: '拍手' },
-  { id: 'cry', emoji: '😭', name: '号泣' },
-  { id: 'sleep', emoji: '😴', name: '眠い' },
-  { id: 'star', emoji: '⭐', name: 'スター' },
-  { id: 'heart_eyes', emoji: '😍', name: 'ラブ' },
-  { id: 'skull', emoji: '💀', name: 'やばい' },
-  { id: 'ghost', emoji: '👻', name: 'おばけ' },
-  { id: 'poop', emoji: '💩', name: 'うんち' },
-  { id: 'ok', emoji: '👌', name: 'OK' },
-  { id: 'wave', emoji: '👋', name: 'バイバイ' }
+  { id: 'like', emoji: '👍' }, { id: 'love', emoji: '❤️' },
+  { id: 'laugh', emoji: '😂' }, { id: 'wow', emoji: '😮' },
+  { id: 'sad', emoji: '😢' }, { id: 'angry', emoji: '😠' },
+  { id: 'fire', emoji: '🔥' }, { id: 'cool', emoji: '😎' },
+  { id: 'party', emoji: '🎉' }, { id: 'think', emoji: '🤔' },
+  { id: 'clap', emoji: '👏' }, { id: 'cry', emoji: '😭' },
+  { id: 'sleep', emoji: '😴' }, { id: 'star', emoji: '⭐' },
+  { id: 'heart_eyes', emoji: '😍' }, { id: 'skull', emoji: '💀' },
+  { id: 'ghost', emoji: '👻' }, { id: 'poop', emoji: '💩' },
+  { id: 'ok', emoji: '👌' }, { id: 'wave', emoji: '👋' }
 ];
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// スタンプ一覧API
 app.get('/api/stamps', (req, res) => {
   res.json({ success: true, stamps: STAMPS });
 });
+
+// メディアアップロード関数
+async function uploadMedia(base64Data, mediaType) {
+  try {
+    const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) return null;
+    
+    const mimeType = matches[1];
+    const base64 = matches[2];
+    const buffer = Buffer.from(base64, 'base64');
+    
+    if (buffer.length > MAX_FILE_SIZE) return null;
+    
+    const ext = mimeType.split('/')[1] || 'bin';
+    const fileName = `${Date.now()}_${crypto.randomBytes(8).toString('hex')}.${ext}`;
+    
+    const { data, error } = await supabase.storage
+      .from('media')
+      .upload(fileName, buffer, {
+        contentType: mimeType,
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
+    
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error('Upload error:', err);
+    return null;
+  }
+}
 
 // メインページ
 app.get('/', (req, res) => {
@@ -96,7 +120,6 @@ app.get('/', (req, res) => {
       position: relative;
     }
     
-    /* ローディング */
     #loading {
       position: absolute;
       top: 50%;
@@ -156,10 +179,7 @@ app.get('/', (req, res) => {
       margin-left: 8px;
     }
     .text { line-height: 1.4; word-wrap: break-word; }
-    .stamp-msg {
-      font-size: 48px;
-      line-height: 1.2;
-    }
+    .stamp-msg { font-size: 48px; line-height: 1.2; }
     .msg-image, .msg-video {
       max-width: 400px;
       max-height: 300px;
@@ -207,11 +227,9 @@ app.get('/', (req, res) => {
       cursor: pointer;
       font-size: 14px;
     }
+    .file-info { color: #72767d; font-size: 12px; margin-top: 5px; }
     .file-size-warning { color: #faa61a; font-size: 12px; margin-top: 5px; }
-    #input-row {
-      display: flex;
-      gap: 10px;
-    }
+    #input-row { display: flex; gap: 10px; }
     #username-input {
       width: 120px;
       background: #202225;
@@ -243,7 +261,6 @@ app.get('/', (req, res) => {
     #send-btn:disabled { background: #4752c4; opacity: 0.5; }
     #file-input { display: none; }
     
-    /* スタンプパネル */
     #stamp-panel {
       display: none;
       position: absolute;
@@ -271,15 +288,9 @@ app.get('/', (req, res) => {
       transition: background 0.2s;
     }
     .stamp-item:hover { background: #40444b; }
-    .stamp-title {
-      color: #72767d;
-      font-size: 12px;
-      margin-bottom: 8px;
-      font-weight: bold;
-    }
+    .stamp-title { color: #72767d; font-size: 12px; margin-bottom: 8px; font-weight: bold; }
     #stamp-container { position: relative; }
     
-    /* メディアモーダル */
     #media-modal {
       display: none;
       position: fixed;
@@ -298,6 +309,15 @@ app.get('/', (req, res) => {
       max-height: 90%;
       border-radius: 8px;
     }
+    
+    /* アップロード中 */
+    #upload-status {
+      display: none;
+      color: #5865f2;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    #upload-status.show { display: block; }
   </style>
 </head>
 <body>
@@ -312,10 +332,12 @@ app.get('/', (req, res) => {
     </div>
   </div>
   <div id="input-area">
+    <div id="upload-status">📤 アップロード中...</div>
     <div id="media-preview">
       <img id="preview-img" src="" style="display:none;">
       <video id="preview-video" src="" style="display:none;" controls></video>
       <button class="remove-btn" onclick="removeMedia()">×</button>
+      <div id="file-info" class="file-info"></div>
       <div id="size-warning" class="file-size-warning"></div>
     </div>
     <div id="input-row">
@@ -352,6 +374,7 @@ app.get('/', (req, res) => {
     const mediaPreview = document.getElementById('media-preview');
     const previewImg = document.getElementById('preview-img');
     const previewVideo = document.getElementById('preview-video');
+    const fileInfo = document.getElementById('file-info');
     const sizeWarning = document.getElementById('size-warning');
     const mediaModal = document.getElementById('media-modal');
     const modalImg = document.getElementById('modal-img');
@@ -360,10 +383,11 @@ app.get('/', (req, res) => {
     const stampPanel = document.getElementById('stamp-panel');
     const stampGrid = document.getElementById('stamp-grid');
     const loadingDiv = document.getElementById('loading');
+    const uploadStatus = document.getElementById('upload-status');
 
     let pendingMedia = null;
     let pendingMediaType = null;
-    const MAX_SIZE = 10 * 1024 * 1024;
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
     const STAMPS = [
       { id: 'like', emoji: '👍' }, { id: 'love', emoji: '❤️' },
@@ -378,7 +402,6 @@ app.get('/', (req, res) => {
       { id: 'ok', emoji: '👌' }, { id: 'wave', emoji: '👋' }
     ];
 
-    // スタンプグリッド生成
     STAMPS.forEach(stamp => {
       const div = document.createElement('div');
       div.className = 'stamp-item';
@@ -400,6 +423,12 @@ app.get('/', (req, res) => {
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
     function isStampOnly(msg) {
@@ -431,8 +460,6 @@ app.get('/', (req, res) => {
         } else {
           mediaHtml = '<img class="msg-image" src="' + data.media_url + '" onclick="showMedia(this.src, \\'image\\')">';
         }
-      } else if (data.image_url) {
-        mediaHtml = '<img class="msg-image" src="' + data.image_url + '" onclick="showMedia(this.src, \\'image\\')">';
       }
       
       const msgText = data.message || '';
@@ -482,15 +509,18 @@ app.get('/', (req, res) => {
       previewVideo.style.display = 'none';
       previewImg.src = '';
       previewVideo.src = '';
+      fileInfo.textContent = '';
       sizeWarning.textContent = '';
     }
 
     function handleMedia(file) {
       if (!file) return;
+      
       if (file.size > MAX_SIZE) {
-        sizeWarning.textContent = '⚠️ ファイルサイズが大きすぎます（10MB以下）';
+        sizeWarning.textContent = '⚠️ ファイルサイズが大きすぎます（50MB以下）';
         return;
       }
+      
       const isVideo = file.type.startsWith('video/');
       const isImage = file.type.startsWith('image/');
       if (!isVideo && !isImage) return;
@@ -509,6 +539,7 @@ app.get('/', (req, res) => {
           previewImg.src = pendingMedia;
         }
         mediaPreview.style.display = 'block';
+        fileInfo.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
         sizeWarning.textContent = '';
       };
       reader.readAsDataURL(file);
@@ -536,10 +567,19 @@ app.get('/', (req, res) => {
       if ((message || pendingMedia) && !sendBtn.disabled) {
         sendBtn.disabled = true;
         localStorage.setItem('username', username);
+        
+        if (pendingMedia) {
+          uploadStatus.classList.add('show');
+        }
+        
         socket.emit('chat', { username, message, media: pendingMedia, mediaType: pendingMediaType });
         messageInput.value = '';
         removeMedia();
-        setTimeout(() => { sendBtn.disabled = false; }, 500);
+        
+        setTimeout(() => {
+          sendBtn.disabled = false;
+          uploadStatus.classList.remove('show');
+        }, 1000);
       }
     }
 
@@ -548,7 +588,10 @@ app.get('/', (req, res) => {
       if (e.key === 'Enter') sendMessage();
     });
 
-    socket.on('chat', addMessage);
+    socket.on('chat', (data) => {
+      uploadStatus.classList.remove('show');
+      addMessage(data);
+    });
     socket.on('history', (history) => {
       loadingDiv.style.display = 'none';
       messagesDiv.innerHTML = '';
@@ -670,14 +713,22 @@ io.on('connection', async (socket) => {
   
   socket.on('chat', async (data) => {
     try {
+      let mediaUrl = null;
+      
+      // メディアがあればStorageにアップロード
+      if (data.media) {
+        mediaUrl = await uploadMedia(data.media, data.mediaType);
+      }
+      
       const newMessage = {
         username: (data.username || 'Anonymous').substring(0, 20),
         message: (data.message || '').substring(0, 500),
-        media_url: data.media || null,
+        media_url: mediaUrl,
         media_type: data.mediaType || null,
         from_roblox: false,
         is_announcement: false
       };
+      
       const { data: saved, error } = await supabase.from('messages').insert([newMessage]).select().single();
       if (!error && saved) io.emit('chat', saved);
     } catch (err) {
