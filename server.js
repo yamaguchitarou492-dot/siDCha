@@ -15,25 +15,25 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Supabase設定
 const supabaseUrl = process.env.SUPABASE_URL || 'https://znlklskqcuybcnrflieq.supabase.co';
 const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_2nZ-FzNcVGKcPqYDSMxSuQ_r4nYxF0L';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 管理者パスワード（Renderの環境変数で設定！）
+// 管理者パスワード
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-// 有効なトークンを保存（サーバーメモリ内）
+// 有効なトークン
 const validTokens = new Set();
 
-// ヘルスチェック（UptimeRobot用）
+// ヘルスチェック
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// メインページ（Adminボタンなし！）
+// メインページ（画像対応版）
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -108,6 +108,14 @@ app.get('/', (req, res) => {
       margin-left: 8px;
     }
     .text { line-height: 1.4; word-wrap: break-word; }
+    .msg-image {
+      max-width: 400px;
+      max-height: 300px;
+      border-radius: 8px;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+    .msg-image:hover { opacity: 0.9; }
     .roblox-badge {
       background: #00a2ff;
       color: white;
@@ -129,6 +137,31 @@ app.get('/', (req, res) => {
       background: #40444b;
       margin: 0 20px 20px 20px;
       border-radius: 8px;
+    }
+    #image-preview {
+      display: none;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    #image-preview img {
+      max-width: 200px;
+      max-height: 150px;
+      border-radius: 8px;
+    }
+    #image-preview .remove-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ed4245;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #input-row {
       display: flex;
       gap: 10px;
     }
@@ -150,6 +183,16 @@ app.get('/', (req, res) => {
       font-size: 14px;
       outline: none;
     }
+    #image-btn {
+      background: #5865f2;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #image-btn:hover { background: #4752c4; }
     #send-btn {
       background: #5865f2;
       border: none;
@@ -161,6 +204,27 @@ app.get('/', (req, res) => {
     }
     #send-btn:hover { background: #4752c4; }
     #send-btn:disabled { background: #4752c4; opacity: 0.5; }
+    #file-input { display: none; }
+    
+    /* 画像モーダル */
+    #image-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    #image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -170,9 +234,21 @@ app.get('/', (req, res) => {
   </div>
   <div id="messages"></div>
   <div id="input-area">
-    <input type="text" id="username-input" placeholder="名前" maxlength="20">
-    <input type="text" id="message-input" placeholder="メッセージを送信" maxlength="500">
-    <button id="send-btn">送信</button>
+    <div id="image-preview">
+      <img id="preview-img" src="">
+      <button class="remove-btn" onclick="removeImage()">×</button>
+    </div>
+    <div id="input-row">
+      <input type="text" id="username-input" placeholder="名前" maxlength="20">
+      <input type="text" id="message-input" placeholder="メッセージを送信 (Ctrl+Vで画像貼り付け)" maxlength="500">
+      <input type="file" id="file-input" accept="image/*">
+      <button id="image-btn">📷</button>
+      <button id="send-btn">送信</button>
+    </div>
+  </div>
+
+  <div id="image-modal">
+    <img id="modal-img" src="">
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -183,6 +259,14 @@ app.get('/', (req, res) => {
     const usernameInput = document.getElementById('username-input');
     const sendBtn = document.getElementById('send-btn');
     const onlineCount = document.getElementById('online-count');
+    const fileInput = document.getElementById('file-input');
+    const imageBtn = document.getElementById('image-btn');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const imageModal = document.getElementById('image-modal');
+    const modalImg = document.getElementById('modal-img');
+
+    let pendingImage = null;
 
     usernameInput.value = localStorage.getItem('username') || '';
 
@@ -208,24 +292,75 @@ app.get('/', (req, res) => {
         avatarClass = 'avatar roblox';
       }
       const time = new Date(data.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      let imageHtml = '';
+      if (data.image_url) {
+        imageHtml = '<img class="msg-image" src="' + data.image_url + '" onclick="showImage(this.src)">';
+      }
       div.innerHTML = 
         '<div class="' + avatarClass + '">' + escapeHtml(initial) + '</div>' +
         '<div class="content">' +
           '<div class="username">' + escapeHtml(data.username) + badge + '<span class="time">' + time + '</span></div>' +
           '<div class="text">' + escapeHtml(data.message) + '</div>' +
+          imageHtml +
         '</div>';
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    function showImage(src) {
+      modalImg.src = src;
+      imageModal.style.display = 'flex';
+    }
+
+    imageModal.addEventListener('click', () => {
+      imageModal.style.display = 'none';
+    });
+
+    function removeImage() {
+      pendingImage = null;
+      imagePreview.style.display = 'none';
+      previewImg.src = '';
+    }
+
+    function handleImage(file) {
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          pendingImage = e.target.result;
+          previewImg.src = pendingImage;
+          imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    imageBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleImage(e.target.files[0]);
+    });
+
+    // Ctrl+V で画像ペースト
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData.items;
+      for (let item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          handleImage(file);
+          e.preventDefault();
+          break;
+        }
+      }
+    });
+
     function sendMessage() {
       const message = messageInput.value.trim();
       const username = usernameInput.value.trim() || 'Anonymous';
-      if (message && !sendBtn.disabled) {
+      if ((message || pendingImage) && !sendBtn.disabled) {
         sendBtn.disabled = true;
         localStorage.setItem('username', username);
-        socket.emit('chat', { username, message });
+        socket.emit('chat', { username, message, image: pendingImage });
         messageInput.value = '';
+        removeImage();
         setTimeout(() => { sendBtn.disabled = false; }, 500);
       }
     }
@@ -256,7 +391,7 @@ app.get('/', (req, res) => {
   `);
 });
 
-// ROBLOX API: メッセージ取得のみ（閲覧専用）
+// ROBLOX API: メッセージ取得
 app.get('/api/messages', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
@@ -286,7 +421,7 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// Admin: ログイン（セキュア版）
+// Admin: ログイン
 app.post('/admin/login', (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
@@ -313,7 +448,7 @@ app.get('/admin/verify', (req, res) => {
   }
 });
 
-// Admin: 認証ミドルウェア（セキュア版）
+// Admin: 認証ミドルウェア
 function adminAuth(req, res, next) {
   const token = req.headers.authorization;
   if (token && validTokens.has(token)) {
@@ -429,6 +564,7 @@ io.on('connection', async (socket) => {
       const newMessage = {
         username: (data.username || 'Anonymous').substring(0, 20),
         message: (data.message || '').substring(0, 500),
+        image_url: data.image || null,
         from_roblox: false,
         is_announcement: false
       };
