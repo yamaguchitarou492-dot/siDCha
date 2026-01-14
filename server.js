@@ -281,7 +281,273 @@ function parseMentions(message) {
   return mentions;
 }
 
-// ========== \u30e1\u30a4\u30f3\u30da\u30fc\u30b8\uff08Liquid Glass \u30c6\u30fc\u30de\uff09 ==========
+// ========== 画面共有専用ページ ==========
+app.get('/screen', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>siDChat - 画面共有</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,UklGRg4QAABXRUJQVlA4WAoAAAAgAAAAOQEAXQAA">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      padding: 16px 24px;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { color: white; font-size: 20px; }
+    .header-info { color: rgba(255,255,255,0.8); font-size: 14px; }
+    .viewer-count { 
+      background: rgba(255,255,255,0.2); 
+      padding: 6px 12px; 
+      border-radius: 20px; 
+      color: white;
+      font-weight: 500;
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 20px;
+    }
+    .video-container {
+      flex: 1;
+      background: #000;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .placeholder {
+      color: #666;
+      text-align: center;
+    }
+    .placeholder .icon { font-size: 80px; margin-bottom: 16px; }
+    .placeholder p { font-size: 16px; color: #888; }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      padding: 20px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+    }
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-start { background: #27ae60; color: white; }
+    .btn-start:hover { background: #2ecc71; transform: scale(1.05); }
+    .btn-stop { background: #e74c3c; color: white; display: none; }
+    .btn-stop:hover { background: #c0392b; }
+    .btn-back { background: rgba(255,255,255,0.2); color: white; }
+    .btn-back:hover { background: rgba(255,255,255,0.3); }
+    .sharer-info {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .sharer-info.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🖥️ siDChat 画面共有</h1>
+    <div class="header-info">
+      <span class="viewer-count" id="viewer-count">0人が参加中</span>
+    </div>
+  </div>
+  
+  <div class="main">
+    <div class="video-container">
+      <div class="placeholder" id="placeholder">
+        <div class="icon">🖥️</div>
+        <p>画面共有を開始するか、他の人の共有を待っています...</p>
+      </div>
+      <video id="video" autoplay playsinline style="display:none;"></video>
+      <div class="sharer-info" id="sharer-info">
+        <span id="sharer-name">誰か</span>が画面を共有中
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button class="btn btn-start" id="start-btn" onclick="startShare()">📺 画面共有を開始</button>
+      <button class="btn btn-stop" id="stop-btn" onclick="stopShare()">⏹️ 共有を停止</button>
+      <button class="btn btn-back" onclick="location.href='/'">← メインに戻る</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById('video');
+    const placeholder = document.getElementById('placeholder');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const sharerInfo = document.getElementById('sharer-info');
+    const sharerName = document.getElementById('sharer-name');
+    const viewerCount = document.getElementById('viewer-count');
+    
+    let localStream = null;
+    let peerConnections = {};
+    let isSharing = false;
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    
+    // ルームに参加
+    socket.emit('joinScreenRoom', { roomId: 1, username: 'ゲスト' + Math.floor(Math.random() * 9000 + 1000) });
+    
+    // 画面共有開始
+    async function startShare() {
+      try {
+        localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        video.srcObject = localStream;
+        video.style.display = 'block';
+        placeholder.style.display = 'none';
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'flex';
+        isSharing = true;
+        
+        socket.emit('startScreenShare', { roomId: 1, username: 'あなた' });
+        localStream.getVideoTracks()[0].onended = () => stopShare();
+      } catch (err) {
+        console.log('共有キャンセル');
+      }
+    }
+    
+    // 画面共有停止
+    function stopShare() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      video.style.display = 'none';
+      placeholder.style.display = 'block';
+      startBtn.style.display = 'flex';
+      stopBtn.style.display = 'none';
+      sharerInfo.classList.remove('active');
+      isSharing = false;
+      
+      socket.emit('stopScreenShare', { roomId: 1 });
+      for (let id in peerConnections) {
+        peerConnections[id].close();
+      }
+      peerConnections = {};
+    }
+    
+    // 他の人が画面共有開始
+    socket.on('screenShareStarted', async ({ socketId, username }) => {
+      if (socketId === socket.id) return;
+      
+      sharerName.textContent = username;
+      sharerInfo.classList.add('active');
+      placeholder.style.display = 'none';
+      video.style.display = 'block';
+      
+      const pc = new RTCPeerConnection(config);
+      peerConnections[socketId] = pc;
+      pc.ontrack = (event) => { video.srcObject = event.streams[0]; };
+      pc.onicecandidate = (event) => {
+        if (event.candidate) socket.emit('iceCandidate', { candidate: event.candidate, targetId: socketId });
+      };
+      socket.emit('requestScreenShare', { targetId: socketId });
+    });
+    
+    // 画面共有リクエストを受信
+    socket.on('screenShareRequested', async ({ requesterId }) => {
+      if (!localStream) return;
+      const pc = new RTCPeerConnection(config);
+      peerConnections[requesterId] = pc;
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      pc.onicecandidate = (event) => {
+        if (event.candidate) socket.emit('iceCandidate', { candidate: event.candidate, targetId: requesterId });
+      };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('offer', { offer, targetId: requesterId });
+    });
+    
+    socket.on('offer', async ({ offer, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (!pc) return;
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('answer', { answer, targetId: senderId });
+    });
+    
+    socket.on('answer', async ({ answer, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+    
+    socket.on('iceCandidate', async ({ candidate, senderId }) => {
+      const pc = peerConnections[senderId];
+      if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+    
+    socket.on('screenShareStopped', ({ socketId }) => {
+      video.style.display = 'none';
+      placeholder.style.display = 'block';
+      sharerInfo.classList.remove('active');
+      video.srcObject = null;
+      if (peerConnections[socketId]) {
+        peerConnections[socketId].close();
+        delete peerConnections[socketId];
+      }
+    });
+    
+    socket.on('roomCounts', (counts) => {
+      if (counts['1'] !== undefined) {
+        viewerCount.textContent = counts['1'] + '人が参加中';
+      }
+    });
+    
+    socket.on('screenShareFull', () => alert('画面共有枠がいっぱいです'));
+  </script>
+</body>
+</html>
+`);
+});
+
+// ========== メインページ（Liquid Glass テーマ） ==========
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
