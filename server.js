@@ -506,6 +506,114 @@ app.get('/', (req, res) => {
       border-radius: 20px;
     }
     
+    /* ===== Screen Share Mode ===== */
+    #screen-share-mode {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+    }
+    #screen-share-mode.active {
+      display: flex;
+    }
+    #screen-mode-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    #screen-mode-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+    #screen-mode-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    #screen-mode-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
+      overflow: hidden;
+    }
+    #screen-video-area {
+      flex: 1;
+      background: #000;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      position: relative;
+    }
+    #screen-video-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 16px;
+    }
+    #screen-video-placeholder {
+      color: #666;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    #screen-video-placeholder .icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    #screen-controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      padding: 15px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 16px;
+    }
+    .screen-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .screen-btn-start {
+      background: #27ae60;
+      color: white;
+    }
+    .screen-btn-start:hover {
+      background: #2ecc71;
+    }
+    .screen-btn-stop {
+      background: #e74c3c;
+      color: white;
+    }
+    .screen-btn-stop:hover {
+      background: #c0392b;
+    }
+    .screen-btn-back {
+      background: rgba(0,0,0,0.1);
+      color: #333;
+    }
+    .screen-btn-back:hover {
+      background: rgba(0,0,0,0.2);
+    }
+    #screen-chat-area {
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(255,255,255,0.5);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    
     #screen-share-container { 
       display: none; 
       padding: 15px;
@@ -530,6 +638,15 @@ app.get('/', (req, res) => {
       background: rgba(231, 76, 60, 0.2);
       color: #c0392b;
       font-size: 12px;
+    }
+    
+    #chat-mode {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    #chat-mode.hidden {
+      display: none;
     }
     
     /* ===== Messages ===== */
@@ -966,19 +1083,19 @@ app.get('/', (req, res) => {
     <div id="server-header"><img src="data:image/png;base64,UklGRg4QAABXRUJQVlA4WAoAAAAgAAAAOQEAXQAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDggIA4AAHA/AJ0BKjoBXgA+USSPRSOiIRRJBaA4BQSxN3C4mHXKb/K9rZb3tP5ReypXf75/Yd88pHy4Oev+r90nwG/Dv4GfpL/re4B+rP669Zr+zf8z1Aftr6uP+v/ZT3Tf5j1Bv7H/zOst9BD9t/Tm9mb+w/9T9uvaYzXr/Gdsv+Q6XX31Mq7zc1X2w/acL/AC/H/6F/j+BNAF+c/1z/eeDzqd+CvYA77LwtfPvYA/QHoZ6C/qP2EP2A6v/7s+y7+25xff7Thr/m/suDtYpI6QUczG9vonzdy+RFc2ri899T4VPfy2VdgcgBPEEwvsrHv+vpuRIWmlH3kgKdeAWoFRIc9WU7KpUhSJWgu6m99XBJu0udcprcVO4p3KEZ5wtN3Q7H57635vPXvi2EsPG9vi7Dvgk2PJdnYeOISJdGrZnks5/wTRJt3eFiCiw0DwmG/Gi/WSicb26qFoeP86kjWkxiVpyfyx90VxTRIBoHvHJ8rh239ZlZ3QvvYXXgX24Vjd7vaKNaJQqy+U+z7lJR0XNZwGbT9vW0PukeVxU2nxeIZbT3VtcP3ZGD+78MdkCvZFtOVsaq+3Kh8Xov5EtZQ3CX/qQl/a9SAJ73lJwDVaTJVLE0VfGL4i72t7hW+3+bjTnW22yrubKaq6HLtGxaAtBiON4Yj1PV+BgVls53rOfN3L5EVzbl8hcAD+/44g4ZaOqJdrN3mwtLfO3Mim9WfjEw71ktL6eiPLQZr+M2wBFyYJbTltNd6fRHfDM8WqEGK0v/LonZ52MAmAJuXOlJ42xxsQ/khrSwXwNN61JhAAX+Xq+/UpzTTxvX9niUABGqLJtAZ4/hRcgfP+hsqVjZsgdNnSXdLPS7h8M1KfnQPCDXegdgwyXPuiQr5AS7UutycNo0EMMcgSNXCvIJ9UhO/v3eB80wP/jiX8ZXVwsYuBWu7kFNk6/sPOTfKqspbvpZkf82rhU+Kbf36hEO2jIPNeujwY+0fH2SwQ/oWvp+GXccjvMNcLnEfElWwqg3gULNzLJpKV4/QwwCjDzN1PhzWmcw8T2d/Sh0/eqDQug22Rg4nz6qvDMutevS6r01A35xHiDqL4WHfT7nMeSUy9JkFMSIbrJxcGzf7r1J1S+zWxNXbZq8ob6NmqrNAl2mxeAy3ISotgYvm80sF+42JdZRiEBzjB24gI4h8BytYFoj1p1XMi4ZsriAS7CEps1QgD/8LsI8fKV85/CaD0pAZgqoN1HPu32xXVLjIWd0D8VNdUVCP46xYD94dbgt0+rFzQ0ZsT+Out4T+5gmA94Vdj3a3yT/9EOkARf8Gv1c267WGW6E2/idgH/2w9wxcZsReI7Lg2Eu8s3+3yozK3RBR6wMlNgR9/Zk//wWXqUUKL2+3fdIUvGwetiq46SE9MmMJR9u3u+kcVXMv+10Qj1JMC2FzSV5r12klqFNaq3LScS8q0mXAt1hu/gb/xtXHKxZNvMauWLPDcZhN5WE2IlhgCk2b2MfJk1eS+BU+mk/tEEXCQe/fUMmBSp8P3WEZMsbtui/B9oOO9mbwcYg0zpw9YmHIdqOGsjovKJz++AXsdCUC1gLMtCkSvR/CX355IJRMllQXF2M1pRCMMWK5DitOjkwv+/xySrqCWHltVa5uuC3klKG7SpnQV2M2XhC4HzUK7FKgnt3BJzL5Sf7QztLUbizzICdWpJvvrb1uAPaR0+n6S9ZFUH091LHq91q3vpAXfCFcyV2VfQ1PapGoL0KwVwwmsVT3K/bhnro+Xm6eqQg02u27mq8hoj97MYnIZIAJh2vuRJsR2SPdoLTBffhZcav+6/BtvQkScvYr9jp2nXF5NvxJyR1esQ0nN5p2q+1RkCqXvaIo8d+d1Hwq3VzxYlu9beNMHy9aCB2Mst1JwKPm2qDUA56228uxofTtn/2TPFQ5/41jVC6VOzC1fNvLlPYpVJ97Cn5gSGuZdLZVYghgjG8R+iOutsPUhla9EfrA/weCX+MmTH5tR69boleI9A9I96fD6g4YS8ezfyBy25JM28kS7yUHtqzf9ui0JhwxR4eYaqzzk60e+YsdqnDBim+ph3U2M1CFGVCS8hXYp3LVsXh9bw5Rwjks1edo27vwyIqSz9TLiUx3crBOqY4HKnYFf/e73rI9VgppbSsxc2NKzKtqGJcuBPqAKbpoMCPSpMH/bL4FA6pi398LvFNLzfvGVe6zK2xORqBN8s41nfJiqTqJn6If+601LpqKfIH5veU0bbOZM/DMfaRpVYiHt+3/j+HJyq0Q/KFXIT6L6db99ON8i7Hk33kxGdhJyXLcP2jUIqJKs529XMmiiat//3B+/GOtqBZyOiHdnzsu1Yr0yMMxuSkt4TsBYGTbsOJ8ihzZoeFOOXQjVXEQnjw8gGmffFEQIJg1x2NrpcxXUa8r8BFYlE3B6D022C88P/U+vZQoLU+Eo0ZiItxsPePMoF7zujKsOcj0UgiuWSiCFmdOxaGorf9d1VetmpgJ7rfqnBCh+FRup/HJrjbd0auje3fsgYa3m7C/ZszItdM167GsVgOyJWeMttRCiNftz7sDbxvGwAimlqC37xumgw834kLZnod4HGOicbBaXnLAR/FHF0A1moA7zC37OwrQqlBknec7AL69BtxI0qQza8FTQL7V2h0PH2wTjwSPRYdcl825JaA5GturQk0D+agw44B0mTtCBH9jAsfWQ5P/p7Y8HEAE/EkdAIzHcFcTWtDhbFN+IrG83jOGTaaFSp7kWq4wrfLBx0pNO/2DlaezoxhhT2YeYD4ar/Wsn7kqFMYAHlj30BRc5otGOyiv7nQOMan8lq1U1vxzWtX3cmB5P9UW+otqDIm0fswi5D8aLmup9rIIFRMYfFYm+tb4mlBoItaV6b/qqEqSZzF0DQ8WQelMbMH7SmgLc6Kk8a1IRImyYMmMI86LIkMVqF1eHfpS30oG/aDReuJOUPGM4VIiTElnLHTjvSXvX8luqkiB/in4/BycHcb6b6N6M79+oWdR8ywnHLQ12IR9HzLhvD1Q9I6oL/WW/m3RySmEMkCcN2m4pp7Jn/YvsBYBBe33a7x8LzlJupV93JmnZTGRPHD++/fMifDetTWkzH4GL3ZgO8AqNXsfB3MC9qxW62KNAHYh1xZkP4zmHxdtA4OfWes0vArtee+CNt2+MIB0hIZl1GAHdqEGUQWYf59OcdoazjEbgsuQC8DEZfXTayCH1BKRbETe6Jz3s40K+SOgEMKHCFpK8QXz8GddzTDlCoSmIiTX9yrEFKHo89NYB4NzXuDNMafKGQy66TPsqptwVFdRI+3zCi2PeJnKCPP7gnNM5ARh7uKFrOX1Vz7Pc42OF8Yt15mWop5tBl/lbKYC7fzYKpJQc7QvvQb0yaF6KIzFWkklelGUGtmatN2iRSCTov7cuWv1vLVmNNJY/lLxEEFGokHgtK/R92TUSWtSB9h6YpcLUtuKxpi3OEzYQSWEULgxZSbQftwVbkMR7LGm94t7g86xTon8+EltlWjWF0C5kbNIt1OQgtcY8AhNfjm5oIW4Sz5pYhH+5v4B3TGPDsDvDYSZJE50J6LPVAqRtPREEUbMFBUpCVb3QYF9uckEbktUdGfde+bg/BM3y30kNUc4wsPmAIhp0xxvD+FwgdQYVk0rnAGVXLyM+io8xEbudWOwFwBX0NovNdfkf0do/gB0B7g0dURraZz3n+ofksvGhIEr2odxqIPr13WU+9eTIwt3BAgbVdCNlw3DRliUPWTbd+Betub3VTwMAFA7yTUALeOvSg7ACfjB5GIcKpgjGITPEXRvtcl9xf6YWS1ci0IY0uCkf5RBH2hPN1p2daL8algYco8+XvjUGymE1wZv6rVnof4jboPhUtsmFnJbjJbBlCMqb52r8xdjJnRnIZAoyLy11StfI0i4gw3eXKTS8NpoH9VHsM/BUp2E5VpEZtEvrMrD+Px/zR9UGbMDLnyx7gqRDBgvwj+6UYoteDiJkkK8M04lOoUJbX5lW6uXuApF8wPHV9mPQh/DnvapW8fWqN2klacNUzNAMoKscs6Sth7F4S9GCxR291g9H9/YFZ1S8mXSpIyGTWJ6PpZk2Y0+pDotsr+tVB8PYbbTSasdMPaA7TgXupEKK85qkSR6mIWssLKzr6RSebs/p/gj/wniv0nVJOlEXRiUM6r8W45DpVVbQaL6kHSzbU7mtKln0h9z+jMv6IlRag694e+qLvh+JLXCRar/klf4nbOovt0qfFbrAsAUtN0rHgK1Z4LBZuq3+3EakP0+OcwV+ASkSRkAg9xU7dfoJm4w/6pMzaW58l/wruCKBkWsP3rc5vJC1SO9dpxpG0w1LcbXV17f6JyRk3Qq8syVx28SORVkR20ss9MHR21AT2QIoN2c/98NfZT+WOyZ9cu524BQ0Ks//cSH+4LlN+lCdNq5K7tgJRTp3n/+huxuRVoJcRVWC5Jf1/kbzJo5qiM5fDFw2l5hhPacDvNT9ItcDBA3M0B7jB2KFfgjYSeK3C0LuZhx+kyGbGFHIY65oQfB+ej6TrEuJFDVs1C6CG/nEmnDitQ6qKzu79F4iG+95ky/Qkk9iwTK+zc//Fmh7eEJKfMSjGnrSBsZLp+HWnqsT/dTOGM6mo04Vzbi97v7Q6DrfhvWWUc/a9YlVLL9raBSDJ1yp9wcBJJ0HTAfS/jx+v7ko1Op2aK4ZGFy30BE1sC+dzZEqV7Oz96uRo5NwX5EUk7Ycfyfc1udxFJ8nbeHe0lk8KuSv+ahsxyX5dqfhe05UBLsck1/4J0ZNcUn5S379R4j8Cu0Opstlkj40aMAAAAHncYAAAh0UACF8gJBqAAAAAAAAAAA=" alt="SdiChat" style="height: 32px;"></div>
     <div id="channels-header">\u30c1\u30e3\u30f3\u30cd\u30eb<button id="add-channel-btn">+</button></div>
     <div id="channel-list"></div>
-    <div id="voice-channels-header">\ud83d\udda5\ufe0f \u753b\u9762\u5171\u6709</div>
+    <div id="voice-channels-header">🖥️ 画面共有</div>
     <div id="voice-channel-list">
-      <div class="voice-channel-item" id="screen-room-1" onclick="joinScreenRoom(1)">
-        <span>\u5171\u6709\u30eb\u30fc\u30e01</span>
-        <span class="viewer-count" id="room1-count">0\u4eba</span>
+      <div class="voice-channel-item" id="screen-room-1" onclick="window.joinScreenRoom(1)">
+        <span>共有ルーム1</span>
+        <span class="viewer-count" id="room1-count">0人</span>
       </div>
-      <div class="voice-channel-item" id="screen-room-2" onclick="joinScreenRoom(2)">
-        <span>\u5171\u6709\u30eb\u30fc\u30e02</span>
-        <span class="viewer-count" id="room2-count">0\u4eba</span>
+      <div class="voice-channel-item" id="screen-room-2" onclick="window.joinScreenRoom(2)">
+        <span>共有ルーム2</span>
+        <span class="viewer-count" id="room2-count">0人</span>
       </div>
-      <div class="voice-channel-item" id="screen-room-3" onclick="joinScreenRoom(3)">
-        <span>\u5171\u6709\u30eb\u30fc\u30e03</span>
-        <span class="viewer-count" id="room3-count">0\u4eba</span>
+      <div class="voice-channel-item" id="screen-room-3" onclick="window.joinScreenRoom(3)">
+        <span>共有ルーム3</span>
+        <span class="viewer-count" id="room3-count">0人</span>
       </div>
     </div>
     <div id="user-section" class="glass-light">
@@ -997,52 +1114,79 @@ app.get('/', (req, res) => {
   </div>
   
   <div id="main" class="glass">
-    <div id="header">
-      <span id="channel-name">general</span>
-      <div class="header-buttons">
-        <button class="header-btn glass-btn" onclick="togglePins()">\ud83d\udccc \u30d4\u30f3\u7559\u3081</button>
-        <button class="header-btn glass-btn" onclick="toggleMembers()">\ud83d\udc65 \u30e1\u30f3\u30d0\u30fc</button>
-        <span id="online-count">0\u4eba\u304c\u30aa\u30f3\u30e9\u30a4\u30f3</span>
-      </div>
-    </div>
-    <div id="screen-share-container" class="glass-light">
-      <div id="screen-share-header">
-        <span>\ud83d\udda5\ufe0f <span id="sharer-name">\u8ab0\u304b</span>\u304c\u753b\u9762\u3092\u5171\u6709\u4e2d</span>
-        <button id="close-screen-share" class="glass-btn">\u2715 \u9589\u3058\u308b</button>
-      </div>
-      <video id="screen-share-video" autoplay playsinline></video>
-    </div>
-    <div id="pins-panel" class="glass">
-      <div id="pins-header">\ud83d\udccc \u30d4\u30f3\u7559\u3081 <button onclick="togglePins()" style="background:none;border:none;color:#7f8c8d;cursor:pointer;font-size:18px;">\u2715</button></div>
-      <div id="pins-list"></div>
-    </div>
-    <div id="messages">
-      <div id="loading"><div class="spinner"></div><div>\u30ed\u30fc\u30c9\u3057\u3066\u3044\u307e\u3059...</div></div>
-    </div>
-    <div id="input-area" class="glass-light">
-      <div id="upload-status">\ud83d\udce4 \u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u4e2d...</div>
-      <div id="media-preview">
-        <img id="preview-img" src="" style="display:none;">
-        <video id="preview-video" src="" style="display:none;" controls></video>
-        <button class="remove-btn" onclick="removeMedia()">\u00d7</button>
-      </div>
-      <div id="mention-suggest" class="glass"></div>
-      <div id="input-row">
-        <input type="text" id="username-input" placeholder="\u540d\u524d" maxlength="20">
-        <input type="text" id="message-input" placeholder="\u30e1\u30c3\u30bb\u30fc\u30b8\u3092\u9001\u4fe1 (@\u3067\u30e1\u30f3\u30b7\u30e7\u30f3)" maxlength="500">
-        <input type="file" id="file-input" accept="image/*,video/*">
-        <button id="media-btn" class="input-btn glass-btn">\ud83d\udcf7</button>
-        <div id="stamp-container">
-          <button id="stamp-btn" class="input-btn glass-btn">\ud83d\ude00</button>
-          <div id="stamp-panel" class="glass"><div class="stamp-title">\u30b9\u30bf\u30f3\u30d7</div><div class="stamp-grid" id="stamp-grid"></div></div>
+    <!-- Chat Mode -->
+    <div id="chat-mode">
+      <div id="header">
+        <span id="channel-name">general</span>
+        <div class="header-buttons">
+          <button class="header-btn glass-btn" onclick="togglePins()">📌 ピン留め</button>
+          <button class="header-btn glass-btn" onclick="toggleMembers()">👥 メンバー</button>
+          <span id="online-count">0人がオンライン</span>
         </div>
-        <button id="send-btn" class="input-btn glass-btn primary">\u9001\u4fe1</button>
+      </div>
+      <div id="screen-share-container" class="glass-light">
+        <div id="screen-share-header">
+          <span>🖥️ <span id="sharer-name">誰か</span>が画面を共有中</span>
+          <button id="close-screen-share" class="glass-btn">✕ 閉じる</button>
+        </div>
+        <video id="screen-share-video" autoplay playsinline></video>
+      </div>
+      <div id="pins-panel" class="glass">
+        <div id="pins-header">📌 ピン留め <button onclick="togglePins()" style="background:none;border:none;color:#7f8c8d;cursor:pointer;font-size:18px;">✕</button></div>
+        <div id="pins-list"></div>
+      </div>
+      <div id="messages">
+        <div id="loading"><div class="spinner"></div><div>ロードしています...</div></div>
+      </div>
+      <div id="input-area" class="glass-light">
+        <div id="upload-status">📤 アップロード中...</div>
+        <div id="media-preview">
+          <img id="preview-img" src="" style="display:none;">
+          <video id="preview-video" src="" style="display:none;" controls></video>
+          <button class="remove-btn" onclick="removeMedia()">×</button>
+        </div>
+        <div id="mention-suggest" class="glass"></div>
+        <div id="input-row">
+          <input type="text" id="username-input" placeholder="名前" maxlength="20">
+          <input type="text" id="message-input" placeholder="メッセージを送信 (@でメンション)" maxlength="500">
+          <input type="file" id="file-input" accept="image/*,video/*">
+          <button id="media-btn" class="input-btn glass-btn">📷</button>
+          <div id="stamp-container">
+            <button id="stamp-btn" class="input-btn glass-btn">😀</button>
+            <div id="stamp-panel" class="glass"><div class="stamp-title">スタンプ</div><div class="stamp-grid" id="stamp-grid"></div></div>
+          </div>
+          <button id="send-btn" class="input-btn glass-btn primary">送信</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Screen Share Mode -->
+    <div id="screen-share-mode">
+      <div id="screen-mode-header">
+        <span id="screen-mode-title">🖥️ 画面共有 - ルーム1</span>
+        <div id="screen-mode-buttons">
+          <span id="screen-room-viewers">0人が視聴中</span>
+        </div>
+      </div>
+      <div id="screen-mode-content">
+        <div id="screen-video-area">
+          <div id="screen-video-placeholder">
+            <div class="icon">🖥️</div>
+            <div>画面共有を開始するか、他の人の共有を待っています...</div>
+          </div>
+          <video id="screen-mode-video" autoplay playsinline style="display:none;"></video>
+        </div>
+        <div id="screen-controls">
+          <button class="screen-btn screen-btn-start" id="start-share-btn" onclick="window.startScreenShare()">📺 画面共有を開始</button>
+          <button class="screen-btn screen-btn-stop" id="stop-share-btn" onclick="window.stopScreenShare()" style="display:none;">⏹️ 共有を停止</button>
+          <button class="screen-btn screen-btn-back" onclick="window.exitScreenMode()">← チャットに戻る</button>
+        </div>
       </div>
     </div>
   </div>
   
   <div id="members-panel" class="glass">
-    <div id="members-header">\u30aa\u30f3\u30e9\u30a4\u30f3 \u2014 <span id="members-count">0</span></div>
+    <div id="members-header">オンライン — <span id="members-count">0</span></div>
     <div id="members-list"></div>
   </div>
 
@@ -1236,42 +1380,81 @@ app.get('/', (req, res) => {
       ).join('');
     }
 
-    async function joinScreenRoom(roomId) {
+    // グローバル関数として公開
+    window.joinScreenRoom = async function(roomId) {
       const username = usernameInput.value.trim() || currentUser?.name || 'Anonymous';
-      if (currentScreenRoom === roomId) { leaveScreenRoom(); return; }
+      if (currentScreenRoom === roomId) { window.exitScreenMode(); return; }
       if (currentScreenRoom) leaveScreenRoom();
       currentScreenRoom = roomId;
       updateRoomUI();
       socket.emit('joinScreenRoom', { roomId, username });
-      if (confirm('\u753b\u9762\u3092\u5171\u6709\u3057\u307e\u3059\u304b\uff1f\\
-\u300c\u30ad\u30e3\u30f3\u30bb\u30eb\u300d\u3092\u62bc\u3059\u3068\u8996\u8074\u306e\u307f\u306b\u306a\u308a\u307e\u3059')) {
-        try {
-          localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-          isSharing = true;
-          socket.emit('startScreenShare', { roomId, username });
-          localStream.getVideoTracks()[0].onended = () => stopScreenShare();
-          updateRoomUI();
-        } catch (err) { console.log('\u5171\u6709\u30ad\u30e3\u30f3\u30bb\u30eb'); }
-      }
+      
+      // 画面共有モードに切り替え
+      enterScreenMode(roomId);
+    };
+    
+    function enterScreenMode(roomId) {
+      console.log('enterScreenMode called', roomId);
+      document.getElementById('chat-mode').classList.add('hidden');
+      document.getElementById('screen-share-mode').classList.add('active');
+      document.getElementById('screen-mode-title').textContent = '🖥️ 画面共有 - ルーム' + roomId;
+      document.getElementById('screen-video-placeholder').style.display = 'flex';
+      document.getElementById('screen-mode-video').style.display = 'none';
+      document.getElementById('start-share-btn').style.display = 'inline-block';
+      document.getElementById('stop-share-btn').style.display = 'none';
     }
     
+    window.exitScreenMode = function() {
+      if (currentScreenRoom) leaveScreenRoom();
+      document.getElementById('chat-mode').classList.remove('hidden');
+      document.getElementById('screen-share-mode').classList.remove('active');
+    };
+    
+    window.startScreenShare = async function() {
+      if (!currentScreenRoom) return;
+      const username = usernameInput.value.trim() || currentUser?.name || 'Anonymous';
+      try {
+        localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        isSharing = true;
+        socket.emit('startScreenShare', { roomId: currentScreenRoom, username });
+        localStream.getVideoTracks()[0].onended = () => window.stopScreenShare();
+        
+        // 自分の画面を表示
+        document.getElementById('screen-mode-video').srcObject = localStream;
+        document.getElementById('screen-mode-video').style.display = 'block';
+        document.getElementById('screen-video-placeholder').style.display = 'none';
+        document.getElementById('start-share-btn').style.display = 'none';
+        document.getElementById('stop-share-btn').style.display = 'inline-block';
+        
+        updateRoomUI();
+      } catch (err) { console.log('共有キャンセル'); }
+    };
+    
     function leaveScreenRoom() {
-      if (isSharing) stopScreenShare();
+      if (isSharing) window.stopScreenShare();
       socket.emit('leaveScreenRoom', { roomId: currentScreenRoom });
       currentScreenRoom = null;
       screenShareContainer.classList.remove('active');
       screenShareVideo.srcObject = null;
+      document.getElementById('screen-mode-video').srcObject = null;
       updateRoomUI();
     }
     
-    function stopScreenShare() {
+    window.stopScreenShare = function() {
       if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
       isSharing = false;
       socket.emit('stopScreenShare', { roomId: currentScreenRoom });
+      
+      // UI更新
+      document.getElementById('screen-mode-video').style.display = 'none';
+      document.getElementById('screen-video-placeholder').style.display = 'flex';
+      document.getElementById('start-share-btn').style.display = 'inline-block';
+      document.getElementById('stop-share-btn').style.display = 'none';
+      
       updateRoomUI();
       for (let id in peerConnections) { peerConnections[id].close(); }
       peerConnections = {};
-    }
+    };
     
     function updateRoomUI() {
       document.querySelectorAll('.voice-channel-item').forEach(el => el.classList.remove('active', 'sharing'));
@@ -1289,12 +1472,23 @@ app.get('/', (req, res) => {
     socket.on('screenShareStarted', async ({ socketId, username }) => {
       if (socketId === socket.id) return;
       sharerNameSpan.textContent = username;
-      screenShareContainer.classList.add('active');
+      
+      // 両方のビデオ要素に表示（チャットモード用と画面共有モード用）
+      const screenModeVideo = document.getElementById('screen-mode-video');
+      
       const pc = new RTCPeerConnection(config);
       peerConnections[socketId] = pc;
-      pc.ontrack = (event) => { screenShareVideo.srcObject = event.streams[0]; };
+      pc.ontrack = (event) => { 
+        screenShareVideo.srcObject = event.streams[0]; 
+        screenModeVideo.srcObject = event.streams[0];
+        screenModeVideo.style.display = 'block';
+        document.getElementById('screen-video-placeholder').style.display = 'none';
+      };
       pc.onicecandidate = (event) => { if (event.candidate) socket.emit('iceCandidate', { candidate: event.candidate, targetId: socketId }); };
       socket.emit('requestScreenShare', { targetId: socketId });
+      
+      // チャットモードの小さい表示も有効化
+      screenShareContainer.classList.add('active');
     });
     socket.on('screenShareRequested', async ({ requesterId }) => {
       if (!localStream) return;
@@ -1325,13 +1519,20 @@ app.get('/', (req, res) => {
     socket.on('screenShareStopped', ({ socketId }) => {
       screenShareContainer.classList.remove('active');
       screenShareVideo.srcObject = null;
+      document.getElementById('screen-mode-video').srcObject = null;
+      document.getElementById('screen-mode-video').style.display = 'none';
+      document.getElementById('screen-video-placeholder').style.display = 'flex';
       if (peerConnections[socketId]) { peerConnections[socketId].close(); delete peerConnections[socketId]; }
     });
-    socket.on('screenShareFull', () => alert('\u753b\u9762\u5171\u6709\u306f\u6700\u59273\u4eba\u307e\u3067\u3067\u3059\uff01'));
+    socket.on('screenShareFull', () => alert('画面共有は最大3人までです！'));
     socket.on('roomCounts', (counts) => {
       for (let roomId in counts) {
         const el = document.getElementById('room' + roomId + '-count');
-        if (el) el.textContent = counts[roomId] + '\u4eba';
+        if (el) el.textContent = counts[roomId] + '人';
+        // 画面共有モードの視聴者数も更新
+        if (currentScreenRoom == roomId) {
+          document.getElementById('screen-room-viewers').textContent = counts[roomId] + '人が視聴中';
+        }
       }
     });
 
